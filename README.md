@@ -1,36 +1,99 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Qalqan — щит от социальной инженерии
 
-## Getting Started
+> *Қалқан* — «щит» по-казахски.
+> V Региональный ITU Hackathon-2026 · FinTech-кейс Банка ЦентрКредит
+> «Инновации в банкинге и кибербезопасности».
 
-First, run the development server:
+**Статус:** в разработке (этап 1 из 6 — каркас, данные, база). Разделы, помеченные
+🚧, будут заполнены по мере готовности.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Проблема
+
+Самые болезненные схемы мошенничества сегодня — социальная инженерия: звонок
+«службы безопасности банка», «безопасный счёт», «следователь», «родственник в беде»,
+фишинговые ссылки. Клиента убеждают **самого** перевести деньги или назвать код.
+Для классического антифрода это штатная операция: правильное устройство, правильный
+пароль, подтверждение клиентом.
+
+## Решение
+
+Qalqan добавляет банку слой защиты *до* перевода:
+
+1. **Анализ сообщений и звонков** на русском и казахском (SMS, мессенджеры, расшифровки
+   звонков): риск-скор 0–100, тип схемы, понятное объяснение и рекомендация.
+   Гибрид: прозрачные правила + LLM, с фолбэком на правила, если LLM недоступна.
+2. **Вмешательство перед переводом** в мобильном банке: учитываются новый получатель,
+   сумма и недавнее подозрительное сообщение. При высоком риске — экран с объяснением,
+   пауза и подтверждение через доверенное лицо.
+3. **Панель антифрода** для сотрудников банка: помеченные случаи, статистика по типам
+   схем, карточка случая.
+
+**Аудитория:** клиенты банка (особенно пожилые и неопытные в цифровых сервисах)
+и антифрод-подразделение банка.
+
+## Архитектура 🚧
+
+```
+Next.js (App Router)
+├── /api/analyze        → детектор: правила + LLM (фолбэк на правила)   [этап 2]
+├── /bank               → мок мобильного банка, экран вмешательства     [этап 3]
+├── /dashboard          → панель антифрода                              [этап 4]
+└── libSQL / SQLite     → таблица cases (только замаскированные данные)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Структура репозитория
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+src/app/            страницы и API (Next.js App Router)
+src/lib/domain.ts   общие типы: схемы мошенничества, контракт анализа
+src/lib/detector/   детектор (контракт analyzeMessage)
+src/lib/privacy.ts  маскирование карт, телефонов, ИИН, IBAN, кодов
+src/lib/db/         клиент libSQL и схема базы
+data/dataset/       размеченный тестовый набор RU/KZ (см. data/README.md)
+scripts/            seed базы, проверка набора, проверка кода Codex
+tests/              тесты (Vitest)
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Запуск
 
-## Learn More
+Нужен Node.js 20.9+.
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm install
+cp .env.example .env.local   # ключ LLM необязателен: без него работают правила
+npm run db:seed              # синтетические данные в data/qalqan.db
+npm run dev                  # http://localhost:3000
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Проверки: `npm run check` (линтер, типы, тесты, проверка тестового набора).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Качество детектора 🚧
 
-## Deploy on Vercel
+Метрики (доля пойманных мошеннических сообщений, ложные срабатывания, отдельно для
+русского и казахского) считаются на отложенной части тестового набора, которая не
+использовалась при настройке правил. Будут добавлены на этапе 2.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Приватность
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Номера карт, CVV, коды из SMS, телефоны, ИИН и IBAN **не хранятся**: перед записью
+  в базу и перед отправкой в LLM текст проходит маскирование (`src/lib/privacy.ts`).
+- В схеме базы нет полей для платёжных данных; клиент обозначается псевдонимом.
+- Маскирование эвристическое (регулярные выражения с проверкой контекста) и не даёт
+  полной гарантии. Известные ограничения: числа без ключевого слова рядом («отправьте
+  мне 4821») не распознаются как код; необычные формулировки вокруг кода могут быть
+  пропущены. Поэтому кроме маскирования действуют ещё два правила: в базу пишется только
+  короткий фрагмент, а в LLM не уходят никакие идентификаторы клиента.
+- Все данные в репозитории синтетические.
+- Секреты — только в переменных окружения (`.env.example` — шаблон без значений).
+
+## Ограничения
+
+- Распознавание речи не входит в MVP: звонки анализируются по готовой расшифровке.
+- Интеграции с реальным банком нет; мобильный банк — демонстрационный мок.
+- Тестовый набор синтетический и небольшой; казахские тексты требуют проверки носителем.
+
+## Команда
+
+См. [CONTRIBUTING.md](CONTRIBUTING.md): роли, зоны ответственности и процесс работы
+(каждый участник работает со своим ИИ-агентом, изменения проходят через pull request
+и автоматическую проверку).
