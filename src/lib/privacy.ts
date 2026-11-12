@@ -69,13 +69,15 @@ function isCodeValue(value: string, after: string): boolean {
 /** «Код: 4821», «код для входа 4821», «CVV: (123)», «Код: «4821»», «SMS code: 4821». */
 const forwardCode: [RegExp, Replacer] = [
   new RegExp(
-    String.raw`(?<!\p{L})(${CODE_KEY})(?!\p{L})((?:${H}{1,3}\p{L}+){0,2})(${SEP})(${NUMBER})`,
+    String.raw`(?<!\p{L})(${CODE_KEY})(?!\p{L})((?:${H}{1,3}\p{L}+){0,4})(${SEP})(${NUMBER})`,
     "giu",
   ),
   (match, ...args) => {
     const [key, gap, sep, value, offset, whole] = args as [string, string, string, string, number, string];
     const after = whole.slice(offset + match.length);
-    if (ID_NOUN.test(gap) || NOT_NEEDED.test(gap)) return match;
+    // «код заказа: 58213» — идентификатор; «код подтверждения оплаты заказа: 4821» — секрет.
+    const firstGapWord = gap.trim().split(/\s+/u)[0] ?? "";
+    if (ID_NOUN.test(firstGapWord) || NOT_NEEDED.test(gap)) return match;
     if (!isCodeValue(value, after)) return match;
     return `${key}${gap}${sep}[КОД]`;
   },

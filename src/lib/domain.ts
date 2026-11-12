@@ -55,8 +55,11 @@ export const CASE_OUTCOMES = [
 ] as const;
 export type CaseOutcome = (typeof CASE_OUTCOMES)[number];
 
+/** Порог высокого риска: с него сообщение считается мошенническим, а перевод — требующим вмешательства. */
+export const HIGH_RISK = 70;
+
 export function riskLevel(score: number): "low" | "medium" | "high" {
-  if (score >= 70) return "high";
+  if (score >= HIGH_RISK) return "high";
   if (score >= 40) return "medium";
   return "low";
 }

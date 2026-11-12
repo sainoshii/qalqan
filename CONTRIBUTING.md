@@ -17,7 +17,7 @@
 | Зона | Владелец | Файлы |
 |---|---|---|
 | Ядро и контракты | Лид + Claude Code | `src/lib/**` (кроме `src/lib/dashboard/**`), `src/app/api/**`, `src/app/bank/**` (мок приложения), `scripts/db-seed.ts`, `scripts/codex-review.sh`, конфиги, `package.json`, `AGENTS.md`, `CLAUDE.md`, `README.md` |
-| Данные и качество | Участник A + Codex | `data/dataset/**`, `data/README.md`, `scripts/eval.ts`, `tests/eval/**`, `docs/metrics.md` |
+| Данные и качество | Участник A + Codex | `data/dataset/**`, `data/README.md`, `tests/eval/**` (скрипт `scripts/eval.ts` и `docs/metrics.md` ведёт лид) |
 | Панель антифрода | Участник B + Codex | `src/app/dashboard/**`, `src/components/dashboard/**`, `src/lib/dashboard/**`, `tests/dashboard/**` |
 | Презентация (с 18 ноября) | Участник B | `docs/presentation/**` |
 
@@ -46,12 +46,10 @@
 - Расширить набор до 150+ записей: больше казахских примеров, больше «ловушек»
   (`hardNegative`: настоящие уведомления банка, похожие на мошеннические), смешанная
   речь RU+KZ, примеры расшифровок звонков.
-- `scripts/eval.ts`: прогон `analyzeMessage` по набору, метрики отдельно для `dev`
-  и `holdout`, по языкам и типам схем: доля пойманных мошеннических (recall),
-  ложные срабатывания (FPR) на обычных и на `hardNegative`, точность типа схемы.
-  Порог «мошенничество» — `riskScore >= 70`. Сейчас детектор — заглушка (всё 0),
-  поэтому скрипт должен корректно работать и с ней.
-- `npm run eval` → таблица в консоль и `docs/metrics.md`.
+- Скрипт оценки уже есть: `npm run eval` (см. `docs/metrics.md`). Честная цифра считается на
+  `data/dataset/challenge-2.jsonl` — по нему правила не настраиваем.
+- Написать ещё один независимый набор `data/dataset/challenge-3.jsonl` (другие сюжеты и
+  формулировки), не заглядывая в `src/lib/detector/rules.ts`.
 
 **Участник B — панель антифрода** (`/dashboard`)
 - Список случаев из таблицы `cases` (фильтры: статус, тип схемы, язык, риск), сортировка
