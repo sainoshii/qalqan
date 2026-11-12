@@ -68,7 +68,7 @@ RUNS_DIR="$ROOT/.codex-runs/$TASK"
 mkdir -p "$RUNS_DIR"
 if [ -z "$CYCLE" ]; then
   CYCLE=1
-  while [ -e "$RUNS_DIR/cycle-$CYCLE" ]; do CYCLE=$((CYCLE + 1)); done
+  while [ -e "$RUNS_DIR/cycle-$CYCLE" ]; do CYCLE=$((CYCLE + 1)); done  # cycle-N.failed-* не считаются
 fi
 printf '%s' "$CYCLE" | grep -Eq '^[0-9]+$' || die "--cycle должен быть числом"
 if [ "$CYCLE" -gt "$MAX_CYCLES" ]; then
@@ -251,7 +251,14 @@ VERDICT="$(grep -Eo '`?(PASS_WITH_NOTES|PASS|FAIL|BLOCKED)`?' "$OUT/report.md" 2
 echo "VERDICT=${VERDICT:-UNKNOWN}" >> "$OUT/meta.env"
 
 if [ "$CODEX_RC" -ne 0 ] || [ ! -s "$OUT/report.md" ]; then
-  echo "codex-review: Codex завершился с кодом $CODEX_RC или без отчёта — см. $OUT/stderr.log" >&2
+  # Запуск без отчёта (лимит, сеть, авторизация) не засчитывается как цикл:
+  # материалы сохраняются рядом, номер цикла освобождается для повтора.
+  REASON="$(grep -o '"message":"[^"]*' "$OUT/events.jsonl" 2>/dev/null | tail -1 | cut -d'"' -f4)"
+  FAILED="$OUT.failed-$(date +%Y%m%d-%H%M%S)"
+  mv "$OUT" "$FAILED"
+  echo "codex-review: Codex завершился с кодом $CODEX_RC без отчёта; цикл $CYCLE не засчитан." >&2
+  [ -n "$REASON" ] && echo "  причина: $REASON" >&2
+  echo "  материалы: ${FAILED#$ROOT/}" >&2
   exit 1
 fi
 

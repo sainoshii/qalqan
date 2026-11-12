@@ -1,18 +1,22 @@
-const MODULES = [
+import Link from "next/link";
+
+const MODULES: Array<{ title: string; text: string; stage: string; href?: string }> = [
   {
     title: "Анализ сообщения",
     text: "Текст SMS, мессенджера или расшифровки звонка на русском или казахском — риск-скор, тип схемы и объяснение.",
-    stage: "Этап 2",
+    stage: "Готово",
+    href: "/bank",
   },
   {
     title: "Мобильный банк (демо)",
     text: "Перевод с учётом контекста: новый получатель, сумма, недавнее подозрительное сообщение. Экран вмешательства при высоком риске.",
-    stage: "Этап 3",
+    stage: "Готово",
+    href: "/bank",
   },
   {
     title: "Панель антифрода",
     text: "Помеченные случаи, статистика по типам схем и карточка случая для сотрудника банка.",
-    stage: "Этап 4",
+    stage: "Этап 4 · в разработке",
   },
 ];
 
@@ -38,9 +42,14 @@ export default function Home() {
             key={m.title}
             className="flex flex-col gap-2 rounded-xl border border-zinc-200 p-5 dark:border-zinc-800"
           >
-            <span className="text-xs font-medium text-zinc-500">{m.stage} · в разработке</span>
+            <span className="text-xs font-medium text-zinc-500">{m.stage}</span>
             <h2 className="font-semibold">{m.title}</h2>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">{m.text}</p>
+            {m.href && (
+              <Link href={m.href} className="mt-auto pt-2 text-sm font-medium text-emerald-700 hover:underline dark:text-emerald-400">
+                Открыть демо →
+              </Link>
+            )}
           </article>
         ))}
       </section>

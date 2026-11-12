@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MAX_BODY_BYTES } from "@/lib/api/analyze-request";
+import { MAX_BODY_BYTES } from "@/lib/api/http";
 
 describe("review: API boundary", () => {
   let POST: (request: Request) => Promise<Response>;

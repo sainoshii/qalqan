@@ -3,7 +3,6 @@ import { LANGUAGES } from "../domain";
 
 /** Ограничения входа `/api/analyze`. */
 export const MAX_TEXT_LENGTH = 5000; // символов; SMS, сообщение или расшифровка звонка
-export const MAX_BODY_BYTES = 32 * 1024;
 
 export const AnalyzeRequestSchema = z.object({
   text: z

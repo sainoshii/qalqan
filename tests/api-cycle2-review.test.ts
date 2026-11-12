@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MAX_BODY_BYTES } from "@/lib/api/analyze-request";
+import { MAX_BODY_BYTES } from "@/lib/api/http";
 
 describe("cycle 2: API stream and media-type boundaries", () => {
   let POST: (request: Request) => Promise<Response>;
