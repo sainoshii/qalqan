@@ -34,7 +34,11 @@ it("propagates a migration failure to all cold callers and retries migration", a
   const results = await Promise.allSettled(Array.from({ length: 32 }, () => db()));
   for (const result of results) {
     expect(result.status).toBe("rejected");
-    if (result.status === "rejected") expect(result.reason).toBe(failure);
+    // Ошибка миграции оборачивается в MigrationError (шаг + код для /api/health); исходная — в cause
+    if (result.status === "rejected") {
+      expect(result.reason).toMatchObject({ name: "MigrationError", step: "create" });
+      expect((result.reason as Error).cause).toBe(failure);
+    }
   }
   expect(batch).toHaveBeenCalledTimes(1);
   expect(readDataset).not.toHaveBeenCalled();

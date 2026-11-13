@@ -12,6 +12,7 @@ export function storageKind(url = resolveDatabaseUrl()): StorageKind {
 
 export interface DbProblem {
   code: string; // код libSQL, например SERVER_ERROR, URL_INVALID
+  step?: string; // шаг миграции, на котором произошла ошибка
   httpStatus?: number;
   hint: string;
 }
@@ -35,5 +36,9 @@ export function describeDbError(err: unknown): DbProblem {
   } else if (code === "SERVER_ERROR" || /fetch failed|ENOTFOUND|ECONNREFUSED/i.test(message)) {
     hint = "Нет связи с Turso: проверьте адрес базы (ошибка в имени хоста) и что база существует.";
   }
-  return { code, httpStatus: status, hint };
+  const step = typeof (err as { step?: unknown })?.step === "string" ? (err as { step: string }).step : undefined;
+  if (code === "SQL_PARSE_ERROR") {
+    hint = "Сервер базы не принял SQL-запрос: это ошибка в коде миграции, а не в настройках. Сообщите разработчику шаг (step).";
+  }
+  return { code, step, httpStatus: status, hint };
 }

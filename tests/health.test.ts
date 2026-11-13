@@ -59,3 +59,19 @@ describe("GET /api/health", () => {
     expect(text).not.toMatch(/secret-db|tok/);
   });
 });
+
+describe("совместимость схемы с Turso", () => {
+  it("в SQL миграции нет комментариев и PRAGMA", async () => {
+    const { SCHEMA } = await import("@/lib/db/schema");
+    for (const sql of SCHEMA) {
+      expect(sql).not.toMatch(/--|\/\*|PRAGMA/i);
+    }
+  });
+
+  it("ошибка миграции видна в диагностике с шагом", async () => {
+    const { MigrationError } = await import("@/lib/db/schema");
+    const p = describeDbError(new MigrationError("create", "SQL_PARSE_ERROR"));
+    expect(p).toMatchObject({ code: "SQL_PARSE_ERROR", step: "create" });
+    expect(p.hint).toMatch(/миграции/);
+  });
+});

@@ -17,8 +17,17 @@ const legacySchema = `CREATE TABLE cases (
   outcome TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'new', synthetic INTEGER NOT NULL DEFAULT 0
 )`;
 
+
+/** Версия схемы хранится в schema_meta (PRAGMA user_version не поддерживается Turso). */
+async function schemaVersion(d: Client): Promise<number | null> {
+  const t = await d.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schema_meta'");
+  if (!t.rows.length) return null;
+  const { rows } = await d.execute("SELECT value FROM schema_meta WHERE key = 'version'");
+  return rows.length ? Number(rows[0].value) : null;
+}
+
 async function assertIndexesAndVersion() {
-  expect((await db.execute("PRAGMA user_version")).rows[0].user_version).toBe(2);
+  expect(await schemaVersion(db)).toBe(2);
   const indexes = (await db.execute("PRAGMA index_list(cases)")).rows.map((row) => row.name);
   expect(indexes).toEqual(expect.arrayContaining([
     "idx_cases_created_at", "idx_cases_scam_type", "idx_cases_status",
@@ -67,7 +76,7 @@ describe("cycle 2: migration lifecycle", () => {
       (id, created_at, client_alias, channel, language, text_excerpt, risk_score, analysis_mode, outcome)
       VALUES ('fixture', '2026-11-12', 'Synthetic', 'sms', 'ru', '[КОД]', 101, 'rules', 'no_transfer')`);
     await expect(migrate(db)).rejects.toThrow();
-    expect((await db.execute("PRAGMA user_version")).rows[0].user_version).toBe(1);
+    expect(await schemaVersion(db)).toBeNull(); // откат: версия 2 не записана
     expect((await db.execute("SELECT risk_score FROM cases")).rows[0].risk_score).toBe(101);
     expect((await db.execute("SELECT name FROM sqlite_master WHERE name = 'cases_v2'")).rows).toEqual([]);
     await db.execute("UPDATE cases SET risk_score = 80");

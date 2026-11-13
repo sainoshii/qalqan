@@ -72,7 +72,7 @@ describe("схема и seed", () => {
       ["ok", "safe_account"],
     ]);
     await expect(db.execute("UPDATE cases SET scam_type = 'unknown' WHERE id = 'ok'")).rejects.toThrow();
-    expect((await db.execute("PRAGMA user_version")).rows[0].user_version).toBe(2);
+    expect((await db.execute("SELECT value FROM schema_meta WHERE key = 'version'")).rows[0].value).toBe(2);
   });
 
   it("схема отвергает некорректный риск-скор", async () => {
