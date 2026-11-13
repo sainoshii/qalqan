@@ -9,7 +9,7 @@ import { CompiledModel, sigmoid, type LinearModel, type ModelWeights } from "./m
  * `assertTrainable` и в тестах.
  */
 
-export const HELD_OUT_FILES = ["challenge-2.jsonl", "challenge-3.jsonl"];
+export const HELD_OUT_FILES = ["challenge-2.jsonl", "challenge-3.jsonl", "challenge-4.jsonl"];
 
 export function assertTrainable(files: string[]): void {
   const bad = files.filter((f) => HELD_OUT_FILES.some((h) => f.endsWith(h)));

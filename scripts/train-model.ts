@@ -4,7 +4,7 @@
  *   npm run train              — перекрёстная проверка на обучающих данных + обучение + запись весов
  *   npm run train -- --cv-only — только перекрёстная проверка
  *
- * Обучающие файлы перечислены в TRAIN_FILES. Отложенные выборки (challenge-2, challenge-3)
+ * Обучающие файлы перечислены в TRAIN_FILES. Отложенные выборки (challenge-2, challenge-3, challenge-4)
  * сюда не входят и не могут быть добавлены: проверка в assertTrainable.
  */
 import { readFileSync, writeFileSync } from "node:fs";
