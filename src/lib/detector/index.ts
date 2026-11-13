@@ -134,8 +134,17 @@ export async function analyzeMessage(text: string, options: AnalyzeOptions = {})
   }
 
   const combined = combine(rules, verdict);
+  const ruleEvidence = rules.signals.some((s) => s !== "model" && s !== "model_type" && !PROTECTIVE.has(s));
+  const llmEvidence = verdict !== null && verdict.riskScore >= LLM_CONFIDENT && verdict.scamType !== null;
+  const evidence: AnalysisResult["evidence"] = ruleEvidence
+    ? "rules"
+    : llmEvidence
+      ? "llm"
+      : rules.signals.includes("model")
+        ? "model"
+        : "none";
   const level = combined.riskScore >= HIGH_RISK ? "high" : combined.riskScore >= 40 ? "medium" : "low";
-  return { ...combined, recommendation: RECOMMENDATIONS[level] };
+  return { ...combined, recommendation: RECOMMENDATIONS[level], evidence };
 }
 
 export { detectLanguage, evaluateRules } from "./rules";

@@ -41,6 +41,12 @@ export interface AnalysisResult {
   reasons: string[]; // понятные клиенту объяснения
   recommendation: string;
   mode: "rules" | "hybrid"; // hybrid — правила + LLM; rules — LLM не использовалась/недоступна
+  /**
+   * На чём держится риск: rules — есть признаки правил; llm — уверенный вердикт LLM;
+   * model — только статистическая модель (без подтверждения она не может вызвать вмешательство);
+   * none — признаков нет. Отсутствует — неизвестно (трактуется как неподтверждённый риск).
+   */
+  evidence?: "rules" | "llm" | "model" | "none";
 }
 
 export const CASE_STATUSES = ["new", "reviewing", "confirmed_fraud", "false_positive"] as const;

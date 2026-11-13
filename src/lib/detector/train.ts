@@ -81,6 +81,7 @@ function trainBinary(data: Array<{ x: SparseVector; y: 0 | 1 }>, o: Required<Tra
 }
 
 export function trainModel(items: DatasetItem[], trainedOn: string[], options: TrainOptions = {}): ModelWeights {
+  assertTrainable(trainedOn);
   const o: Required<TrainOptions> = { epochs: 40, learningRate: 0.5, l2: 1e-4, prune: 0.002, maxWeights: 12000, maxTypeWeights: 1200, seed: 20261120, ...options };
   const data = items.map((i) => ({ x: featurize(i.text), item: i }));
 

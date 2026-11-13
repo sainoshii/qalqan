@@ -6,12 +6,13 @@ import { analyzeMessage } from "@/lib/detector";
 import { assessTransfer } from "@/lib/transfer/risk";
 import type { AnalysisResult } from "@/lib/domain";
 
-const msg = (riskScore: number, reasons: string[] = ["причина"]): AnalysisResult => ({
+const msg = (riskScore: number, reasons: string[] = ["причина"], evidence: AnalysisResult["evidence"] = "rules"): AnalysisResult => ({
   riskScore,
   scamType: riskScore >= 40 ? "safe_account" : null,
   reasons,
   recommendation: "",
   mode: "rules",
+  evidence,
 });
 
 describe("assessTransfer", () => {
@@ -30,6 +31,12 @@ describe("assessTransfer", () => {
     const a = assessTransfer({ amount: 600_000, newRecipient: true, message: msg(50) });
     expect(a.decision).toBe("intervene");
     expect(a.riskScore).toBe(75);
+  });
+
+  it("риск одной модели контекст не поднимает до вмешательства", () => {
+    expect(assessTransfer({ amount: 600_000, newRecipient: true, message: msg(60, ["модель"], "model") }).decision).toBe("warn");
+    expect(assessTransfer({ amount: 600_000, newRecipient: true, message: { ...msg(60, ["?"]), evidence: undefined } }).decision).toBe("warn");
+    expect(assessTransfer({ amount: 600_000, newRecipient: true, message: msg(60, ["llm"], "llm") }).decision).toBe("intervene");
   });
 
   it("контекст не превращает обычное сообщение в подозрение", () => {

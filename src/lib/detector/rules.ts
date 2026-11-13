@@ -309,8 +309,14 @@ const TYPE_PRIORITY: Array<{ type: ScamType; signals: string[] }> = [
   { type: "code_request", signals: ["code_request"] },
 ];
 
+/** Нижний регистр, ё→е, пробелы схлопнуты; переводы строк сохраняются — это границы фраз. */
 export function normalize(text: string): string {
-  return text.toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim();
+  return text
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^\S\n]+/g, " ")
+    .replace(/ *\n[\s]*/g, "\n")
+    .trim();
 }
 
 const KAZAKH_LETTERS = /[әғқңөұүһі]/i;
@@ -322,33 +328,69 @@ export function detectLanguage(text: string): Language {
 /**
  * Предупреждение о мошенниках (памятка банка, сообщение в чате), а не сама попытка:
  * в таких текстах слова мошенника приводятся как цитата. Контекст определяется по словам,
- * которые разоблачают цитату («уловка», «не верьте», «алдау»), а не по слову «памятка»:
- * иначе требование можно было бы спрятать в кавычки после нейтральной приписки.
+ * которые разоблачают цитату («уловка», «не верьте», «алдау»), а не по слову «памятка».
  */
 const WARNING_CONTEXT =
-  /(?<!не )уловк|это (?:обман|развод)|не верьте|не ведитесь|не заполняйте|пожалуйтесь|фальшив|лжесотрудник|участились|мне (?:звонил|звонили|пишут|написали)|мошенники (?:пишут|звонят|рассылают)|положила? трубку|алдау|сенбеңіз|деуі мүмкін|мәжбүрлеп жүр|жалған қоңырау|тұтқаны қойдым|алаяқтар .{0,20}жазып/;
+  /(?<!не )уловк|это (?:обман|развод)|не верьте|не ведитесь|не заполняйте|пожалуйтесь|фальшив|лжесотрудник|участились|мне (?:звонил|звонили|пишут|написали)|мошенники (?:пишут|звонят|рассылают)|положила? трубку|(?<!\p{L})алдау(?!\p{L})|сенбеңіз|деуі мүмкін|мәжбүрлеп жүр|жалған қоңырау|тұтқаны қойдым|алаяқтар .{0,20}жазып/u;
 
 const QUOTED = /«[^»]{0,300}»|"[^"]{0,300}"|“[^”]{0,300}”/g;
 
-/** Отрицание в предложении: «никогда не просит», «не звонят», «ешқашан сұрамайды», «лжесотрудники». */
+/** Отрицание: «никогда не просит», «не звонят», «ешқашан сұрамайды», «лжесотрудники». */
 const NEGATED =
   /никогда|не (?:просит|просят|звонит|звонят|требует|требуют|делает|делают|присылает|присылают)|лже|ешқашан|сұрамайды|жалған/;
 
-export function evaluateRules(text: string): RuleResult {
-  let normalized = normalize(text);
-  // В предупреждении цитаты мошенника не считаются требованием к читателю
-  const isWarning = WARNING_CONTEXT.test(normalized);
-  if (isWarning) normalized = normalized.replace(QUOTED, " ");
+/** Граница фразы: отрицание до неё к требованию после неё не относится. */
+const CLAUSE_BREAK = /[.!?…,;:\n]/g;
 
-  // Однозначный признак засчитывается, только если есть предложение, где он не отрицается:
-  // «банк никогда не просит установить AnyDesk» — предупреждение, а не просьба.
-  const sentences = normalized.split(/(?<=[.!?…])\s+|\n+/u);
-  const firesIn = (sig: Signal) =>
-    sig.strong
-      ? sentences.some((sentence) => !NEGATED.test(sentence) && sig.patterns.some((p) => p.test(sentence)))
-      : sig.patterns.some((p) => p.test(normalized));
-  const fired = SIGNALS.filter(firesIn);
-  const links = suspiciousLinks(normalized);
+/** Цитату вводит обращённое к читателю указание её выполнить — значит, это не пример, а инструкция. */
+const QUOTE_IMPERATIVE = /(?:выполн|сделай|делай|следуй|повтор|нажм|отправ|скажи|орында|жаса|айт)\p{L}*[^«"“]{0,40}$/u;
+
+/**
+ * Отрицается ли требование, найденное с позиции `index`: отрицание должно стоять перед ним
+ * в той же фразе («банк никогда не просит установить AnyDesk»). «Никогда не сомневайтесь,
+ * назовите код» — отрицание в другой фразе, требование засчитывается.
+ */
+function negatedAt(text: string, index: number): boolean {
+  let window = text.slice(Math.max(0, index - 60), index);
+  const breaks = [...window.matchAll(CLAUSE_BREAK)];
+  if (breaks.length) window = window.slice((breaks.at(-1)?.index ?? -1) + 1);
+  return NEGATED.test(window);
+}
+
+function quoteSpans(text: string): Array<[number, number]> {
+  return [...text.matchAll(QUOTED)].map((m) => [m.index ?? 0, (m.index ?? 0) + m[0].length]);
+}
+
+/**
+ * Однозначный признак засчитывается, если хотя бы одно его совпадение — не отрицаемое и не
+ * цитата-пример в предупреждении. Шаблоны проверяются по всему тексту, поэтому требование,
+ * растянутое на два предложения, не теряется.
+ */
+function strongFires(sig: Signal, text: string, isWarning: boolean, quotes: Array<[number, number]>): boolean {
+  for (const p of sig.patterns) {
+    const re = new RegExp(p.source, p.flags.includes("g") ? p.flags : `${p.flags}g`);
+    for (const m of text.matchAll(re)) {
+      const at = m.index ?? 0;
+      if (negatedAt(text, at)) continue;
+      const quote = quotes.find(([qs, qe]) => at >= qs && at < qe);
+      if (isWarning && quote && !QUOTE_IMPERATIVE.test(text.slice(Math.max(0, quote[0] - 60), quote[0]))) continue;
+      return true;
+    }
+  }
+  return false;
+}
+
+export function evaluateRules(text: string): RuleResult {
+  const full = normalize(text);
+  const isWarning = WARNING_CONTEXT.test(full);
+  const quotes = quoteSpans(full);
+  // Слабые признаки в предупреждении не считаются по цитатам — это слова мошенника, а не просьба
+  const weakText = isWarning ? full.replace(QUOTED, " ") : full;
+
+  const fired = SIGNALS.filter((sig) =>
+    sig.strong ? strongFires(sig, full, isWarning, quotes) : sig.patterns.some((p) => p.test(weakText)),
+  );
+  const links = suspiciousLinks(weakText);
   const strong = fired.some((s) => s.strong) || links.length > 0;
 
   // Защитные признаки действуют, только когда нет однозначного требования: приписка
@@ -365,7 +407,7 @@ export function evaluateRules(text: string): RuleResult {
     reasons.push("Ссылка ведёт на сайт, который не принадлежит банку или госоргану");
   }
   // Номер телефона в SMS «от банка» с угрозой — типичный приём
-  if (PHONE_IN_TEXT.test(normalized) && ids.includes("threat") && !ids.includes("callback_number")) score += 10;
+  if (PHONE_IN_TEXT.test(full) && ids.includes("threat") && !ids.includes("callback_number")) score += 10;
   // Предупреждение без собственных однозначных требований — не атака
   if (isWarning && !strong) {
     score -= 40;

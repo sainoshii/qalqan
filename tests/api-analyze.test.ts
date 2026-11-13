@@ -22,7 +22,8 @@ describe("POST /api/analyze", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("no-store");
     const json = await res.json();
-    expect(Object.keys(json).sort()).toEqual(["mode", "reasons", "recommendation", "riskScore", "scamType"]);
+    expect(Object.keys(json).sort()).toEqual(["evidence", "mode", "reasons", "recommendation", "riskScore", "scamType"]);
+    expect(json.evidence).toBe("rules");
     expect(json.riskScore).toBeGreaterThanOrEqual(70);
     expect(json.mode).toBe("rules");
     expect(Array.isArray(json.reasons)).toBe(true);

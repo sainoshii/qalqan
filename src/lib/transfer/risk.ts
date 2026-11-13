@@ -45,6 +45,11 @@ export function assessTransfer({ amount, newRecipient, message }: TransferContex
     reasons.push("Крупный перевод получателю, которому вы раньше не переводили");
   }
 
+  // Правило двух сигналов и для перевода: контекст (новый получатель, сумма) поднимает
+  // предупреждение до вмешательства, только если риск сообщения подтверждён правилами или LLM.
+  // Риск одной статистической модели (или неизвестного происхождения) остаётся предупреждением.
+  const confirmed = message?.evidence === "rules" || message?.evidence === "llm";
+  if (!confirmed && messageRisk < HIGH_RISK) riskScore = Math.min(riskScore, HIGH_RISK - 1);
   riskScore = Math.max(0, Math.min(100, Math.round(riskScore)));
   const decision: TransferDecision = riskScore >= HIGH_RISK ? "intervene" : riskScore >= WARN_RISK ? "warn" : "allow";
   return { decision, riskScore, reasons: decision === "allow" ? [] : reasons.slice(0, 5) };

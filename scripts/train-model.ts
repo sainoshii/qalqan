@@ -7,9 +7,9 @@
  * Обучающие файлы перечислены в TRAIN_FILES. Отложенные выборки (challenge-2, challenge-3, challenge-4)
  * сюда не входят и не могут быть добавлены: проверка в assertTrainable.
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { parseDataset, type DatasetItem } from "../src/lib/dataset";
-import { assertTrainable, crossValidate, trainModel } from "../src/lib/detector/train";
+import { HELD_OUT_FILES, assertTrainable, crossValidate, trainModel } from "../src/lib/detector/train";
 import { combineLocal } from "../src/lib/detector";
 import { evaluateRules } from "../src/lib/detector/rules";
 import { HIGH_RISK } from "../src/lib/domain";
@@ -21,8 +21,30 @@ export const TRAIN_FILES = [
   "data/dataset/train-3.jsonl", // участник A; пока файла нет — пропускается
 ];
 
+const HELD_OUT_PATHS = HELD_OUT_FILES.map((f) => `data/dataset/${f}`);
+const normText = (t: string) => t.toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim();
+
+/**
+ * Защита отложенных выборок не только по имени: файл-ссылка (symlink) или копия под другим
+ * именем тоже отклоняются — по реальному пути и по совпадению текстов.
+ */
+function heldOutGuard() {
+  const real = new Set<string>();
+  const texts = new Set<string>();
+  for (const f of HELD_OUT_PATHS) {
+    try {
+      real.add(realpathSync(f));
+      for (const item of parseDataset(readFileSync(f, "utf8")).items) texts.add(normText(item.text));
+    } catch {
+      // набор ещё не создан
+    }
+  }
+  return { real, texts };
+}
+
 export function loadTraining(files = TRAIN_FILES): DatasetItem[] {
   assertTrainable(files);
+  const guard = heldOutGuard();
   const items: DatasetItem[] = [];
   for (const f of files) {
     let text: string;
@@ -31,8 +53,11 @@ export function loadTraining(files = TRAIN_FILES): DatasetItem[] {
     } catch {
       continue; // файл ещё не создан
     }
+    if (guard.real.has(realpathSync(f))) throw new Error(`Отложенная выборка под другим именем: ${f}`);
     const { items: parsed, errors } = parseDataset(text);
     if (errors.length) throw new Error(`${f}:\n${errors.join("\n")}`);
+    const leaked = parsed.filter((i) => guard.texts.has(normText(i.text)));
+    if (leaked.length) throw new Error(`Отложенные тексты в обучающем файле ${f}: ${leaked.map((i) => i.id).join(", ")}`);
     items.push(...parsed);
   }
   return items;
