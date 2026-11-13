@@ -13,9 +13,11 @@ import { CaseRequestSchema } from "@/lib/transfer/request";
  * Сохраняются только случаи с подозрением (риск >= 40) и только замаскированный фрагмент.
  */
 const allow = createRateLimiter(20, 60_000);
+/** Общий потолок записей на весь сервис: защищает панель от засорения, даже если адрес подделан. */
+const allowGlobal = createRateLimiter(120, 60_000);
 
 export async function POST(request: Request) {
-  if (!allow(clientIp(request))) return jsonError(429, "Слишком много запросов. Повторите через минуту.", { "Retry-After": "60" });
+  if (!allow(clientIp(request)) || !allowGlobal("*")) return jsonError(429, "Слишком много запросов. Повторите через минуту.", { "Retry-After": "60" });
 
   const body = await readJson(request);
   if ("response" in body) return body.response;

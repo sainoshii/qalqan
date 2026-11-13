@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { SCAM_TYPE_LABELS, riskLevel, type AnalysisResult, type CaseOutcome } from "@/lib/domain";
-import { RECIPIENTS, SCENARIOS, type Scenario } from "./scenarios";
+import { RECIPIENTS, SCENARIOS, type Recipient, type Scenario } from "./scenarios";
 
 /** Пауза перед тем, как клиент сможет продолжить рискованный перевод (в демо — короткая). */
 const PAUSE_SECONDS = 20;
@@ -15,6 +15,17 @@ interface Assessment {
 }
 
 type Step = "form" | "warn" | "intervene" | "trusted" | "sent" | "cancelled";
+
+/**
+ * Зафиксированная попытка перевода: решение, экраны и запись исхода относятся к ней,
+ * а не к полям формы, которые клиент мог изменить после отправки.
+ */
+interface Attempt {
+  amount: number;
+  recipient: Recipient;
+  messageText: string;
+  channel?: Scenario["channel"];
+}
 
 const tenge = (n: number) => `${n.toLocaleString("ru-RU")} ₸`;
 
@@ -65,7 +76,13 @@ export function BankDemo() {
   const [error, setError] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(PAUSE_SECONDS);
   const [understood, setUnderstood] = useState(false);
+  const [attempt, setAttempt] = useState<Attempt | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const formHeadingRef = useRef<HTMLHeadingElement>(null);
+  const returningToForm = useRef(false);
+  // Номера последних запросов: ответ на устаревший запрос игнорируется
+  const analyzeSeq = useRef(0);
+  const assessSeq = useRef(0);
 
   const messageText = (scenario?.text ?? customText).trim();
   const recipient = RECIPIENTS.find((r) => r.id === recipientId) ?? RECIPIENTS[0];
@@ -81,20 +98,30 @@ export function BankDemo() {
 
   // При смене экрана фокус уходит на его заголовок (для клавиатуры и экранных дикторов)
   useEffect(() => {
-    if (step !== "form") headingRef.current?.focus();
+    if (step !== "form") {
+      headingRef.current?.focus();
+    } else if (returningToForm.current) {
+      returningToForm.current = false;
+      formHeadingRef.current?.focus();
+    }
   }, [step]);
 
   async function analyze(text: string) {
+    const seq = ++analyzeSeq.current;
     setAnalysis(null);
     setError(null);
-    if (!text.trim()) return;
+    if (!text.trim()) {
+      setAnalyzing(false);
+      return;
+    }
     setAnalyzing(true);
     try {
-      setAnalysis(await postJson<AnalysisResult>("/api/analyze", { text }));
+      const result = await postJson<AnalysisResult>("/api/analyze", { text });
+      if (seq === analyzeSeq.current) setAnalysis(result);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Не удалось проверить сообщение");
+      if (seq === analyzeSeq.current) setError(e instanceof Error ? e.message : "Не удалось проверить сообщение");
     } finally {
-      setAnalyzing(false);
+      if (seq === analyzeSeq.current) setAnalyzing(false);
     }
   }
 
@@ -105,12 +132,13 @@ export function BankDemo() {
   }
 
   function record(outcome: CaseOutcome) {
+    if (!attempt) return;
     // Запись для панели антифрода; сбой записи не должен мешать клиенту
     void postJson("/api/cases", {
-      amount: amountNumber,
-      newRecipient: !recipient.known,
-      messageText: messageText || undefined,
-      channel: scenario?.channel,
+      amount: attempt.amount,
+      newRecipient: !attempt.recipient.known,
+      messageText: attempt.messageText || undefined,
+      channel: attempt.channel,
       outcome,
     }).catch(() => undefined);
   }
@@ -118,14 +146,18 @@ export function BankDemo() {
   async function submitTransfer(e: React.FormEvent) {
     e.preventDefault();
     if (!amountValid || busy) return;
+    const current: Attempt = { amount: amountNumber, recipient, messageText, channel: scenario?.channel };
+    const seq = ++assessSeq.current;
     setBusy(true);
     setError(null);
     try {
       const result = await postJson<Assessment>("/api/transfer/assess", {
-        amount: amountNumber,
-        newRecipient: !recipient.known,
-        messageText: messageText || undefined,
+        amount: current.amount,
+        newRecipient: !current.recipient.known,
+        messageText: current.messageText || undefined,
       });
+      if (seq !== assessSeq.current) return;
+      setAttempt(current);
       setAssessment(result);
       if (result.decision === "allow") {
         setStep("sent");
@@ -135,9 +167,9 @@ export function BankDemo() {
         setStep(result.decision);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не удалось проверить перевод");
+      if (seq === assessSeq.current) setError(err instanceof Error ? err.message : "Не удалось проверить перевод");
     } finally {
-      setBusy(false);
+      if (seq === assessSeq.current) setBusy(false);
     }
   }
 
@@ -147,8 +179,10 @@ export function BankDemo() {
   }
 
   function reset() {
+    returningToForm.current = true;
     setStep("form");
     setAssessment(null);
+    setAttempt(null);
     setError(null);
   }
 
@@ -199,7 +233,10 @@ export function BankDemo() {
             onChange={(e) => {
               setCustomText(e.target.value);
               setScenario(null);
+              // Текст изменился — ответ на анализ прежнего текста уже не актуален
+              analyzeSeq.current += 1;
               setAnalysis(null);
+              setAnalyzing(false);
             }}
             placeholder="Например: «Здравствуйте, это банк, назовите код из SMS…»"
             className="rounded-xl border border-zinc-300 bg-white p-3 text-base dark:border-zinc-700 dark:bg-zinc-900"
@@ -248,8 +285,11 @@ export function BankDemo() {
           </div>
 
           {step === "form" && (
-            <form onSubmit={submitTransfer} className="flex flex-col gap-4">
-              <fieldset className="flex flex-col gap-2">
+            <form onSubmit={submitTransfer} className="flex flex-col gap-4" aria-busy={busy}>
+              <h3 ref={formHeadingRef} tabIndex={-1} className="text-base font-semibold outline-none">
+                Новый перевод
+              </h3>
+              <fieldset disabled={busy} className="flex flex-col gap-2">
                 <legend className="mb-1 text-sm font-medium">Кому</legend>
                 {RECIPIENTS.map((r) => (
                   <label
@@ -280,6 +320,7 @@ export function BankDemo() {
                   autoComplete="off"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value.replace(/[^\d\s]/g, ""))}
+                  disabled={busy}
                   aria-invalid={!amountValid}
                   aria-describedby={!amountValid ? "amount-error" : undefined}
                   className="min-h-11 rounded-xl border border-zinc-300 bg-white px-3 text-base tabular-nums dark:border-zinc-700 dark:bg-zinc-900"
@@ -303,7 +344,7 @@ export function BankDemo() {
             </form>
           )}
 
-          {step === "warn" && assessment && (
+          {step === "warn" && assessment && attempt && (
             <div className="flex flex-col gap-4">
               <h3 ref={headingRef} tabIndex={-1} className="text-base font-semibold outline-none">
                 Проверьте перевод
@@ -315,7 +356,7 @@ export function BankDemo() {
                 ))}
               </ul>
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                {tenge(amountNumber)} → {recipient.name}. Если вас торопят или просят никому не говорить — остановитесь.
+                {tenge(attempt.amount)} → {attempt.recipient.name}. Если вас торопят или просят никому не говорить — остановитесь.
               </p>
               <button type="button" className={primary} onClick={() => finish("cancelled_by_client", "cancelled")}>
                 Отменить перевод
@@ -326,7 +367,7 @@ export function BankDemo() {
             </div>
           )}
 
-          {step === "intervene" && assessment && (
+          {step === "intervene" && assessment && attempt && (
             <div className="flex flex-col gap-4">
               <div className="rounded-2xl bg-red-50 p-4 dark:bg-red-950/60">
                 <h3 ref={headingRef} tabIndex={-1} className="text-base font-semibold text-red-900 outline-none dark:text-red-100">
@@ -334,7 +375,7 @@ export function BankDemo() {
                 </h3>
                 {scamLabel && <p className="mt-1 text-sm text-red-900 dark:text-red-200">Схема: {scamLabel}</p>}
                 <p className="mt-2 text-sm text-red-900 dark:text-red-200">
-                  Мы приостановили перевод {tenge(amountNumber)}. Деньги не списаны.
+                  Мы приостановили перевод {tenge(attempt.amount)}. Деньги не списаны.
                 </p>
               </div>
 
@@ -387,13 +428,13 @@ export function BankDemo() {
             </div>
           )}
 
-          {step === "trusted" && (
+          {step === "trusted" && attempt && (
             <div className="flex flex-col gap-4">
               <h3 ref={headingRef} tabIndex={-1} className="text-base font-semibold outline-none">
                 Перевод на удержании
               </h3>
               <p className="text-sm">
-                Мы отправили запрос вашему доверенному человеку: <strong>Айгүл (дочь)</strong>. Перевод {tenge(amountNumber)} не
+                Мы отправили запрос вашему доверенному человеку: <strong>Айгүл (дочь)</strong>. Перевод {tenge(attempt.amount)} не
                 будет выполнен, пока она не подтвердит. Деньги не списаны.
               </p>
               <p className="text-xs text-zinc-500">В демо запрос не отправляется; в продукте — пуш и звонок доверенному лицу.</p>
@@ -403,13 +444,13 @@ export function BankDemo() {
             </div>
           )}
 
-          {step === "cancelled" && (
+          {step === "cancelled" && attempt && (
             <div className="flex flex-col gap-4">
               <h3 ref={headingRef} tabIndex={-1} className="text-base font-semibold outline-none">
                 Перевод отменён
               </h3>
               <p className="text-sm">
-                Деньги остались на счёте: {tenge(amountNumber)}. Если вам звонили «из банка», сообщите об этом по номеру на
+                Деньги остались на счёте: {tenge(attempt.amount)}. Если вам звонили «из банка», сообщите об этом по номеру на
                 обороте карты.
               </p>
               <button type="button" className={primary} onClick={reset}>
@@ -418,13 +459,13 @@ export function BankDemo() {
             </div>
           )}
 
-          {step === "sent" && (
+          {step === "sent" && attempt && (
             <div className="flex flex-col gap-4">
               <h3 ref={headingRef} tabIndex={-1} className="text-base font-semibold outline-none">
                 Перевод выполнен
               </h3>
               <p className="text-sm">
-                {tenge(amountNumber)} → {recipient.name}.
+                {tenge(attempt.amount)} → {attempt.recipient.name}.
                 {assessment?.decision === "allow" && " Признаков риска не найдено, дополнительных вопросов не было."}
               </p>
               <button type="button" className={primary} onClick={reset}>

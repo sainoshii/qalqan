@@ -4,8 +4,20 @@ export const MAX_BODY_BYTES = 32 * 1024;
 export const jsonError = (status: number, message: string, headers?: HeadersInit) =>
   Response.json({ error: message }, { status, headers });
 
+/**
+ * Адрес клиента для ограничения частоты.
+ *
+ * Левые значения `X-Forwarded-For` присылает сам клиент и может подделать. Доверяем
+ * только тому, что добавила ближайшая инфраструктура: `X-Real-IP` (Vercel и nginx
+ * задают его сами) или последнему значению `X-Forwarded-For`, которое дописывает
+ * ближайший прокси. Без прокси клиент контролирует и его — поэтому для записи
+ * дополнительно действует общий лимит на весь сервис (см. /api/cases).
+ */
 export function clientIp(request: Request): string {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const realIp = request.headers.get("x-real-ip")?.trim();
+  if (realIp) return realIp;
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",").map((v) => v.trim()).filter(Boolean);
+  return forwarded?.at(-1) || "local";
 }
 
 /** Читает тело потоком и прекращает чтение, как только превышен лимит. */
