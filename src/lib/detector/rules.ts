@@ -335,15 +335,27 @@ const WARNING_CONTEXT =
 
 const QUOTED = /«[^»]{0,300}»|"[^"]{0,300}"|“[^”]{0,300}”/g;
 
-/** Отрицание: «никогда не просит», «не звонят», «ешқашан сұрамайды», «лжесотрудники». */
+/**
+ * Отрицание засчитывается только как утверждение о том, чего банк НЕ делает:
+ * «не просит», «не звонят», «не требует», «сұрамайды», «жалған», «лже…». Любое другое «не»
+ * («никогда не сомневайтесь», «не забывайте») требование не гасит.
+ */
 const NEGATED =
-  /никогда|не (?:просит|просят|звонит|звонят|требует|требуют|делает|делают|присылает|присылают)|лже|ешқашан|сұрамайды|жалған/;
+  /(?<!\p{L})не (?:просит|просят|спрашива\p{L}*|звонит|звонят|требует|требуют|присылает|присылают)(?!\p{L})|жалған|(?<!\p{L})лже/u;
+/** В казахском отрицающий глагол стоит в конце фразы, после требования. */
+const NEGATED_AFTER_KK = /сұрамайды|талап етпейді|сұрамаймыз|талап етпейміз/u;
 
 /** Граница фразы: отрицание до неё к требованию после неё не относится. */
 const CLAUSE_BREAK = /[.!?…,;:\n]/g;
 
-/** Цитату вводит обращённое к читателю указание её выполнить — значит, это не пример, а инструкция. */
-const QUOTE_IMPERATIVE = /(?:выполн|сделай|делай|следуй|повтор|нажм|отправ|скажи|орында|жаса|айт)\p{L}*[^«"“]{0,40}$/u;
+/**
+ * Цитата с требованием — пример слов мошенника (а не инструкция), только если она явно подана
+ * так: перед ней «пишет», «говорят», «фраза», «мошенник», «не выполняйте»… или после неё
+ * «— это уловка», «деуі мүмкін», «деген». Иначе требование в кавычках засчитывается.
+ */
+const QUOTE_ATTRIBUTION_BEFORE =
+  /(?:пиш\p{L}*|говор\p{L}*|скаж\p{L}*|фраз\p{L}*|слова|мошенник\p{L}*|алаяқ\p{L}*|(?<!\p{L})не (?:выполня|дела|следу|повторя|отвеча|верь|ведит)\p{L}*|орындамаңыз|жазады|айтады)[^«"“.!?\n]{0,30}$/u;
+const QUOTE_ATTRIBUTION_AFTER = /^\s*(?:[—–-]\s*)?(?:это\s+)?(?:уловк|обман|развод|ложь|алдау|деуі|дейді|деп|деген)/u;
 
 /**
  * Отрицается ли требование, найденное с позиции `index`: отрицание должно стоять перед ним
@@ -351,10 +363,13 @@ const QUOTE_IMPERATIVE = /(?:выполн|сделай|делай|следуй|�
  * назовите код» — отрицание в другой фразе, требование засчитывается.
  */
 function negatedAt(text: string, index: number): boolean {
-  let window = text.slice(Math.max(0, index - 60), index);
-  const breaks = [...window.matchAll(CLAUSE_BREAK)];
-  if (breaks.length) window = window.slice((breaks.at(-1)?.index ?? -1) + 1);
-  return NEGATED.test(window);
+  let before = text.slice(Math.max(0, index - 60), index);
+  const breaks = [...before.matchAll(CLAUSE_BREAK)];
+  if (breaks.length) before = before.slice((breaks.at(-1)?.index ?? -1) + 1);
+  if (NEGATED.test(before)) return true;
+  const rest = text.slice(index, index + 80);
+  const end = rest.search(/[.!?…,;:\n]/);
+  return NEGATED_AFTER_KK.test(end >= 0 ? rest.slice(0, end) : rest);
 }
 
 function quoteSpans(text: string): Array<[number, number]> {
@@ -373,7 +388,13 @@ function strongFires(sig: Signal, text: string, isWarning: boolean, quotes: Arra
       const at = m.index ?? 0;
       if (negatedAt(text, at)) continue;
       const quote = quotes.find(([qs, qe]) => at >= qs && at < qe);
-      if (isWarning && quote && !QUOTE_IMPERATIVE.test(text.slice(Math.max(0, quote[0] - 60), quote[0]))) continue;
+      if (
+        isWarning &&
+        quote &&
+        (QUOTE_ATTRIBUTION_BEFORE.test(text.slice(Math.max(0, quote[0] - 60), quote[0])) ||
+          QUOTE_ATTRIBUTION_AFTER.test(text.slice(quote[1], quote[1] + 40)))
+      )
+        continue;
       return true;
     }
   }
