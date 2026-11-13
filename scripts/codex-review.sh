@@ -91,6 +91,7 @@ cleanup() {
   [ -n "$TMP_INDEX" ] && rm -f "$TMP_INDEX"
   if [ "$KEEP_WT" -eq 0 ] && [ -d "$WT" ]; then
     git -C "$ROOT" worktree remove --force "$WT" >/dev/null 2>&1 || true
+    case "$WT" in "$GIT_COMMON/codex-worktrees/"*) rm -rf "$WT" ;; esac
   fi
   # Если до запуска Codex не дошло — цикл не засчитывается
   [ -f "$OUT/meta.env" ] || rm -rf "$OUT"
@@ -135,7 +136,12 @@ BASE_SHA=""
 
 # --- 2. Изолированный worktree для Codex -----------------------------------
 mkdir -p "$(dirname "$WT")"
-[ -e "$WT" ] && git worktree remove --force "$WT" >/dev/null 2>&1 || true
+git worktree prune
+if [ -e "$WT" ]; then
+  git worktree remove --force "$WT" >/dev/null 2>&1 || true
+  # Остаток прерванного запуска, который git уже не считает worktree (каталог — наш, служебный)
+  case "$WT" in "$GIT_COMMON/codex-worktrees/"*) rm -rf "$WT" ;; esac
+fi
 git worktree add --detach "$WT" "$SNAPSHOT" >/dev/null 2>"$OUT/worktree.log" \
   || die "не удалось создать worktree (см. $OUT/worktree.log)"
 
