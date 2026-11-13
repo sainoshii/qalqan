@@ -125,7 +125,9 @@ function buildCase(r: () => number, i: number, scams: DatasetItem[], legits: Dat
     scam_type: scamType,
     reasons: JSON.stringify(reasons),
     recommendation: riskScore >= 70 ? RECOMMENDATION_HIGH : RECOMMENDATION_MEDIUM,
-    analysis_mode: r() < 0.8 ? "hybrid" : "rules",
+    // LLM в демо не подключена — синтетика не должна выдавать себя за её результат.
+    // r() вызывается, чтобы остальные поля остались прежними (детерминированность seed).
+    analysis_mode: (r(), "rules"),
     transfer_amount: transferAmount,
     new_recipient: hasTransfer && r() < 0.85 ? 1 : 0,
     outcome,

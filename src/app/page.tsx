@@ -16,7 +16,8 @@ const MODULES: Array<{ title: string; text: string; stage: string; href?: string
   {
     title: "Панель антифрода",
     text: "Помеченные случаи, статистика по типам схем и карточка случая для сотрудника банка.",
-    stage: "Этап 4 · в разработке",
+    stage: "Готово",
+    href: "/dashboard",
   },
 ];
 
@@ -47,7 +48,7 @@ export default function Home() {
             <p className="text-sm text-zinc-600 dark:text-zinc-400">{m.text}</p>
             {m.href && (
               <Link href={m.href} className="mt-auto pt-2 text-sm font-medium text-emerald-700 hover:underline dark:text-emerald-400">
-                Открыть демо →
+                Открыть →
               </Link>
             )}
           </article>
