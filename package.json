@@ -13,7 +13,8 @@
     "data:check": "node --import tsx scripts/check-dataset.ts",
     "db:seed": "node --import tsx scripts/db-seed.ts",
     "check": "npm run lint && npm run typecheck && npm run test && npm run data:check",
-    "eval": "node --import tsx scripts/eval.ts"
+    "eval": "node --import tsx scripts/eval.ts",
+    "train": "node --import tsx scripts/train-model.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",

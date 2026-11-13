@@ -1,14 +1,19 @@
 import { HIGH_RISK, type AnalysisResult, type Language } from "../domain";
 import { maskSensitive } from "../privacy";
 import { askLlm, llmConfigured, type LlmVerdict } from "./llm";
+import { CompiledModel, type ModelVerdict, type ModelWeights } from "./model";
+import weights from "./model-weights.json";
 import { detectLanguage, evaluateRules, type RuleResult } from "./rules";
 
 /**
  * Детектор — единая точка входа для `/api/analyze`, мока приложения и eval.
  *
- * Гибрид: правила считаются всегда (быстро, без сети, объяснимо); если LLM настроена
- * и разрешена, её оценка уточняет скор и добавляет объяснения. При любой ошибке LLM
- * (нет ключа, таймаут, отказ, сбой сети) возвращается результат правил — `mode: "rules"`.
+ * Три слоя:
+ * 1. Правила — всегда: быстро, без сети, объяснимо; однозначные признаки дают нижнюю границу риска.
+ * 2. Статистическая модель (символьные n-граммы, `npm run train`) — всегда: ловит
+ *    перефразированные схемы, которые правила пропускают. Работает локально, бесплатно.
+ * 3. LLM — если настроена: уточняет скор и добавляет объяснения. При любой ошибке LLM
+ *    результат даёт локальный слой (правила + модель) — `mode: "rules"`.
  */
 export interface AnalyzeOptions {
   /** Язык, если известен; иначе определяется автоматически. */
@@ -17,6 +22,57 @@ export interface AnalyzeOptions {
   useLlm?: boolean;
   /** Подмена вызова LLM (для тестов). */
   llm?: (maskedText: string, lang: Language) => Promise<LlmVerdict | null>;
+  /** Использовать статистическую модель (по умолчанию да). */
+  useModel?: boolean;
+  /** Подмена модели (для тестов и честной оценки на отложенных данных). */
+  model?: CompiledModel;
+}
+
+const defaultModel = new CompiledModel(weights as unknown as ModelWeights);
+
+/**
+ * Калибровка вероятности модели в риск-скор: порог MODEL_THRESHOLD (подобран перекрёстной
+ * проверкой на обучающих данных) соответствует высокому риску (70).
+ */
+export const MODEL_THRESHOLD = 0.6;
+
+export function modelRisk(probability: number): number {
+  const p = Math.max(0, Math.min(1, probability));
+  const score = p >= MODEL_THRESHOLD ? HIGH_RISK + ((p - MODEL_THRESHOLD) / (1 - MODEL_THRESHOLD)) * 30 : (p / MODEL_THRESHOLD) * (HIGH_RISK - 1);
+  return Math.round(score);
+}
+
+/** Защитные признаки правил (настоящее уведомление банка, вопрос «это мошенники?») снижают вес модели. */
+const PROTECTIVE = new Set(["protective_code_warning", "official_channel", "asks_about_scam", "warning_context"]);
+const PROTECTIVE_PENALTY = 30;
+
+/** Локальный вердикт: правила + модель. */
+/** Модель учитывается, только если уверена и текст не слишком короткий (на «Привет.» сигнала нет). */
+export const MODEL_MIN_PROBABILITY = 0.5;
+export const MODEL_MIN_WORDS = 4;
+
+export function combineLocal(rules: RuleResult, model: ModelVerdict | null, text = ""): RuleResult {
+  if (!model || model.probability < MODEL_MIN_PROBABILITY) return rules;
+  if (text && text.trim().split(/\s+/u).length < MODEL_MIN_WORDS) return rules;
+  const protective = rules.signals.some((s) => PROTECTIVE.has(s));
+  const fromModel = Math.max(0, modelRisk(model.probability) - (protective ? PROTECTIVE_PENALTY : 0));
+  if (fromModel <= rules.score) return rules;
+
+  const score = Math.min(100, fromModel);
+  const reasons = [...rules.reasons];
+  if (score >= 40) {
+    reasons.push(
+      `Текст похож на известные мошеннические сообщения (статистическая модель, уверенность ${Math.round(model.probability * 100)}%)`,
+    );
+  }
+  return {
+    ...rules,
+    score,
+    scamType: score >= 40 ? (rules.scamType ?? model.scamType) : null,
+    reasons: score >= 40 ? reasons : [],
+    // model_type — тип схемы назван моделью, а не правилами (LLM его может уточнить)
+    signals: [...rules.signals, "model", ...(rules.scamType ? [] : ["model_type"])],
+  };
 }
 
 const RECOMMENDATIONS = {
@@ -51,13 +107,16 @@ export function combine(rules: RuleResult, llm: LlmVerdict | null): Omit<Analysi
     if (!reasons.some((x) => x.toLowerCase() === r.toLowerCase())) reasons.push(r);
   }
 
-  const scamType = riskScore >= 40 ? (rules.scamType ?? llm.scamType) : null;
+  // Приоритет типа: правила → LLM → статистическая модель
+  const rulesType = rules.signals.includes("model_type") ? null : rules.scamType;
+  const scamType = riskScore >= 40 ? (rulesType ?? llm.scamType ?? rules.scamType) : null;
   return { riskScore, scamType, reasons: riskScore >= 40 ? reasons.slice(0, MAX_REASONS) : [], mode: "hybrid" };
 }
 
 export async function analyzeMessage(text: string, options: AnalyzeOptions = {}): Promise<AnalysisResult> {
   const lang = options.lang ?? detectLanguage(text);
-  const rules = evaluateRules(text);
+  const model = options.useModel === false ? null : (options.model ?? defaultModel).predict(text);
+  const rules = combineLocal(evaluateRules(text), model, text);
 
   const useLlm = options.useLlm ?? (options.llm !== undefined || llmConfigured());
   let verdict: LlmVerdict | null = null;

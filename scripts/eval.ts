@@ -50,10 +50,10 @@ export function computeMetrics(rows: Scored[]): Metrics {
   };
 }
 
-export async function scoreDataset(items: DatasetItem[], useLlm: boolean): Promise<Scored[]> {
+export async function scoreDataset(items: DatasetItem[], useLlm: boolean, useModel = true): Promise<Scored[]> {
   const rows: Scored[] = [];
   for (const item of items) {
-    const result = await analyzeMessage(item.text, { useLlm });
+    const result = await analyzeMessage(item.text, { useLlm, useModel });
     rows.push({ item, riskScore: result.riskScore, scamType: result.scamType });
   }
   return rows;
@@ -87,13 +87,18 @@ async function main() {
   const argv = process.argv.slice(2);
   const args = new Set(argv);
   const useLlm = args.has("--llm");
+  const useModel = !args.has("--no-model");
   const fileIndex = argv.indexOf("--file");
   const file = fileIndex >= 0 ? argv[fileIndex + 1] : "data/dataset/messages.jsonl";
   const { items, errors } = parseDataset(readFileSync(file, "utf8"));
   if (errors.length) throw new Error(`Тестовый набор некорректен:\n${errors.join("\n")}`);
 
-  const rows = await scoreDataset(items, useLlm);
-  const mode = useLlm ? "правила + LLM" : "только правила";
+  const rows = await scoreDataset(items, useLlm, useModel);
+  const mode = [useModel ? "правила + модель" : "только правила", useLlm ? "LLM" : ""].filter(Boolean).join(" + ");
+  const weights = JSON.parse(readFileSync("src/lib/detector/model-weights.json", "utf8")) as { trainedOn: string[] };
+  if (useModel && weights.trainedOn.includes(file)) {
+    console.log(`ВНИМАНИЕ: модель обучалась на ${file} — цифры завышены и не являются оценкой качества.\n`);
+  }
   const out = table(rows);
   console.log(`Набор: ${file} (${items.length}). Режим: ${mode}. Порог мошенничества: riskScore >= ${HIGH_RISK}\n`);
   console.log(out);

@@ -355,7 +355,10 @@ export function evaluateRules(text: string): RuleResult {
   // Номер телефона в SMS «от банка» с угрозой — типичный приём
   if (PHONE_IN_TEXT.test(normalized) && ids.includes("threat") && !ids.includes("callback_number")) score += 10;
   // Предупреждение без собственных однозначных требований — не атака
-  if (isWarning && !strong) score -= 40;
+  if (isWarning && !strong) {
+    score -= 40;
+    ids.push("warning_context");
+  }
 
   score = Math.max(0, Math.min(100, score));
   const scamType = score >= 40 ? (TYPE_PRIORITY.find((p) => p.signals.some((id) => ids.includes(id)))?.type ?? null) : null;
