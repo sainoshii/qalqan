@@ -267,6 +267,7 @@ export const SIGNALS: Signal[] = [
       /никому не (?:сообщайте|говорите|называйте) (?:этот |эти |свой |свои )?(?:код|коды|пароль|пин|cvv)|не вводите код/,
       /никогда (?:его |их |не )?(?:не )?(?:спрашива|проси)[а-я]*|называть не нужно|не нужно называть|данных карты называть не нужно/,
       /(?:код|кодтарын|кодты)[а-яәғқңөұүһі]* ешкімге айтпаңыз|ешқашан сұрамайды|айтудың қажеті жоқ/,
+      /код[а-я]*(?: из sms)? не (?:сообщайте|говорите|называйте) никому/,
     ],
   },
   {
@@ -325,9 +326,13 @@ export function detectLanguage(text: string): Language {
  * иначе требование можно было бы спрятать в кавычки после нейтральной приписки.
  */
 const WARNING_CONTEXT =
-  /(?<!не )уловк|это (?:обман|развод)|не верьте|не заполняйте|пожалуйтесь|фальшив|алдау|сенбеңіз|деуі мүмкін|мәжбүрлеп жүр/;
+  /(?<!не )уловк|это (?:обман|развод)|не верьте|не ведитесь|не заполняйте|пожалуйтесь|фальшив|лжесотрудник|участились|мне (?:звонил|звонили|пишут|написали)|мошенники (?:пишут|звонят|рассылают)|положила? трубку|алдау|сенбеңіз|деуі мүмкін|мәжбүрлеп жүр|жалған қоңырау|тұтқаны қойдым|алаяқтар .{0,20}жазып/;
 
 const QUOTED = /«[^»]{0,300}»|"[^"]{0,300}"|“[^”]{0,300}”/g;
+
+/** Отрицание в предложении: «никогда не просит», «не звонят», «ешқашан сұрамайды», «лжесотрудники». */
+const NEGATED =
+  /никогда|не (?:просит|просят|звонит|звонят|требует|требуют|делает|делают|присылает|присылают)|лже|ешқашан|сұрамайды|жалған/;
 
 export function evaluateRules(text: string): RuleResult {
   let normalized = normalize(text);
@@ -335,7 +340,14 @@ export function evaluateRules(text: string): RuleResult {
   const isWarning = WARNING_CONTEXT.test(normalized);
   if (isWarning) normalized = normalized.replace(QUOTED, " ");
 
-  const fired = SIGNALS.filter((s) => s.patterns.some((p) => p.test(normalized)));
+  // Однозначный признак засчитывается, только если есть предложение, где он не отрицается:
+  // «банк никогда не просит установить AnyDesk» — предупреждение, а не просьба.
+  const sentences = normalized.split(/(?<=[.!?…])\s+|\n+/u);
+  const firesIn = (sig: Signal) =>
+    sig.strong
+      ? sentences.some((sentence) => !NEGATED.test(sentence) && sig.patterns.some((p) => p.test(sentence)))
+      : sig.patterns.some((p) => p.test(normalized));
+  const fired = SIGNALS.filter(firesIn);
   const links = suspiciousLinks(normalized);
   const strong = fired.some((s) => s.strong) || links.length > 0;
 

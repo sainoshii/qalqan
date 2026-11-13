@@ -55,7 +55,11 @@ export function combineLocal(rules: RuleResult, model: ModelVerdict | null, text
   if (!model || model.probability < MODEL_MIN_PROBABILITY) return rules;
   if (text && text.trim().split(/\s+/u).length < MODEL_MIN_WORDS) return rules;
   const protective = rules.signals.some((s) => PROTECTIVE.has(s));
-  const fromModel = Math.max(0, modelRisk(model.probability) - (protective ? PROTECTIVE_PENALTY : 0));
+  let fromModel = Math.max(0, modelRisk(model.probability) - (protective ? PROTECTIVE_PENALTY : 0));
+  // Два независимых сигнала: без подтверждения правил (ни одного признака мошенничества)
+  // модель даёт только предупреждение, но не вмешательство.
+  const corroborated = rules.signals.some((s) => !PROTECTIVE.has(s));
+  if (!corroborated) fromModel = Math.min(fromModel, HIGH_RISK - 1);
   if (fromModel <= rules.score) return rules;
 
   const score = Math.min(100, fromModel);
