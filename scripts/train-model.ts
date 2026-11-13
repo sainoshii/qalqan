@@ -18,6 +18,7 @@ export const TRAIN_FILES = [
   "data/dataset/messages.jsonl",
   "data/dataset/challenge-1.jsonl",
   "data/dataset/train-2.jsonl",
+  "data/dataset/train-3.jsonl", // участник A; пока файла нет — пропускается
 ];
 
 export function loadTraining(files = TRAIN_FILES): DatasetItem[] {
