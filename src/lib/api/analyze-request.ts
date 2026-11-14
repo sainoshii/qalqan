@@ -11,7 +11,7 @@ export const AnalyzeRequestSchema = z.object({
     .min(1, "Текст пуст")
     .max(MAX_TEXT_LENGTH, `Текст длиннее ${MAX_TEXT_LENGTH} символов`),
   lang: z.enum(LANGUAGES, { error: "lang: допустимы ru или kk" }).optional(),
-});
+}, { error: "Тело запроса должно быть JSON-объектом" });
 
 export type AnalyzeRequest = z.infer<typeof AnalyzeRequestSchema>;
 

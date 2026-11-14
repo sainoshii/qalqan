@@ -10,7 +10,7 @@ const amount = z
   .positive("amount: сумма должна быть больше нуля")
   .max(MAX_AMOUNT, "amount: слишком большая сумма");
 
-const messageText = z.string().trim().max(MAX_TEXT_LENGTH, `Текст длиннее ${MAX_TEXT_LENGTH} символов`).optional();
+const messageText = z.string({ error: "messageText: нужна строка" }).trim().max(MAX_TEXT_LENGTH, `Текст длиннее ${MAX_TEXT_LENGTH} символов`).optional();
 
 /**
  * Реквизиты получателя (номер карты, телефон) на сервер не передаются вовсе —
@@ -22,9 +22,9 @@ export const AssessRequestSchema = z.object({
   messageText,
   /** Сигнал устройства: во время перевода идёт телефонный разговор. */
   onCall: z.boolean({ error: "onCall: true или false" }).optional(),
-});
+}, { error: "Тело запроса должно быть JSON-объектом" });
 
 export const CaseRequestSchema = AssessRequestSchema.extend({
-  channel: z.enum(CHANNELS).optional(),
+  channel: z.enum(CHANNELS, { error: "channel: допустимы sms, call, messenger, email" }).optional(),
   outcome: z.enum(CASE_OUTCOMES, { error: "outcome: недопустимое значение" }),
 });

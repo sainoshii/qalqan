@@ -5,7 +5,8 @@
 > «Инновации в банкинге и кибербезопасности».
 
 **Демо:** https://qalqan-one.vercel.app · [мобильный банк](https://qalqan-one.vercel.app/bank) ·
-[панель антифрода](https://qalqan-one.vercel.app/dashboard)
+[панель антифрода](https://qalqan-one.vercel.app/dashboard) ·
+[API для банка](https://qalqan-one.vercel.app/docs)
 
 ![Экран вмешательства: Qalqan останавливает перевод после звонка «службы безопасности»](docs/screenshots/bank-intervention.jpg)
 
@@ -87,6 +88,8 @@ flowchart LR
 
 ### API
 
+Полное описание с примерами — https://qalqan-one.vercel.app/docs.
+
 ```bash
 curl -X POST https://qalqan-one.vercel.app/api/analyze \
   -H 'content-type: application/json' \
@@ -163,7 +166,7 @@ curl -X POST https://qalqan-one.vercel.app/api/analyze \
 ## Стек
 
 TypeScript · Next.js 16 (App Router) · React 19 · Tailwind CSS 4 · libSQL / Turso (SQLite) ·
-Zod · Claude API (опционально) · Vitest (613 тестов) · Vercel.
+Zod · Claude API (опционально) · Vitest (631 тестов) · Vercel.
 
 ## Структура репозитория
 

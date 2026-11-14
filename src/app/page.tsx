@@ -19,6 +19,12 @@ const MODULES: Array<{ title: string; text: string; stage: string; href?: string
     stage: "Готово",
     href: "/dashboard",
   },
+  {
+    title: "API для банка",
+    text: "Два вызова перед переводом: поля, примеры, ошибки и лимиты — всё, что нужно для интеграции.",
+    stage: "Готово",
+    href: "/docs",
+  },
 ];
 
 export default function Home() {
@@ -37,7 +43,7 @@ export default function Home() {
         </p>
       </header>
 
-      <section className="grid gap-4 sm:grid-cols-3" aria-label="Модули">
+      <section className="grid gap-4 sm:grid-cols-2" aria-label="Модули">
         {MODULES.map((m) => (
           <article
             key={m.title}
