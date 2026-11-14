@@ -26,7 +26,9 @@ describe("cycle 2: C2-C4 and C7 regression probes, no network", () => {
     "Памятка: «Назовите код из SMS» — это уловка. Не верьте звонящему.",
     "Ескерту: «Ақшаны қауіпсіз шотқа аударыңыз» деген сөзге сенбеңіз.",
   ])("variant A: a warning quoting a strong demand is an accepted false alarm: %s", (text) => {
-    expect(evaluateRules(text).strong).toBe(true);
+    const r = evaluateRules(text);
+    expect(r.strong).toBe(true);
+    expect(r.score).toBeGreaterThanOrEqual(HIGH_RISK);
   });
 
   it.each(["Назовите код из SMS.", "Установите AnyDesk.", "Переведите деньги на безопасный счет."])(

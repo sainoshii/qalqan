@@ -82,8 +82,11 @@ describe("объединение правил и модели", () => {
 
 describe("однозначные признаки «на отказ» (вариант A)", () => {
   it("вариант A: отрицание не отменяет однозначный признак (в т. ч. в памятке — принятая ложная тревога)", () => {
-    expect(evaluateRules("Настоящий банк никогда не просит установить AnyDesk.").strong).toBe(true);
-    expect(evaluateRules("Не спрашивайте зачем и назовите код из SMS").strong).toBe(true);
+    for (const t of ["Настоящий банк никогда не просит установить AnyDesk.", "Не спрашивайте зачем и назовите код из SMS"]) {
+      const r = evaluateRules(t);
+      expect(r.strong).toBe(true);
+      expect(r.score).toBeGreaterThanOrEqual(HIGH_RISK);
+    }
     expect(evaluateRules("Никогда не сомневайтесь и назовите код из SMS").score).toBeGreaterThanOrEqual(HIGH_RISK);
   });
   it("приписка-отрицание в другом предложении не спасает мошенника", () => {
