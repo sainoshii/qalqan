@@ -6,7 +6,7 @@
 |---|---|---|
 | Лид команды | Claude Code | ведущий разработчик: архитектура, ядро, интеграция, ревью и merge |
 | Участник A | Codex | данные и качество детектора |
-| Участник B | Codex | панель антифрода, затем презентация |
+| Участник B | — | выбыл (15 ноября); его задачи — у лида и участника A |
 | — | Codex-ревьюер | автоматическая проверка каждой задачи (`scripts/codex-review.sh`) |
 
 ## Зоны (кто какие файлы меняет)
@@ -18,8 +18,8 @@
 |---|---|---|
 | Ядро и контракты | Лид + Claude Code | `src/lib/**` (кроме `src/lib/dashboard/**`), `src/app/api/**`, `src/app/bank/**` (мок приложения), `scripts/db-seed.ts`, `scripts/codex-review.sh`, конфиги, `package.json`, `AGENTS.md`, `CLAUDE.md`, `README.md` |
 | Данные и качество | Участник A + Codex | `data/dataset/**`, `data/README.md`, `tests/eval/**` (скрипт `scripts/eval.ts` и `docs/metrics.md` ведёт лид) |
-| Панель антифрода | Участник B + Codex | `src/app/dashboard/**`, `src/components/dashboard/**`, `src/lib/dashboard/**`, `tests/dashboard/**` |
-| Презентация (с 18 ноября) | Участник B | `docs/presentation/**` |
+| Панель антифрода | Лид + Claude Code | `src/app/dashboard/**`, `src/components/dashboard/**`, `src/lib/dashboard/**`, `tests/dashboard/**` |
+| Презентация | Лид + Claude Code | `docs/presentation/**` |
 
 **Общие контракты** (меняет только лид): `src/lib/domain.ts` (типы, схемы
 мошенничества, контракт `/api/analyze`), `src/lib/db/schema.ts` (таблица `cases`),
