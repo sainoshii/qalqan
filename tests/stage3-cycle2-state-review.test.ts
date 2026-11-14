@@ -122,7 +122,7 @@ describe("stage 3 cycle 2: transfer attempt ownership", () => {
     expect(writes).toHaveLength(1);
     expect(writes[0].body).toEqual({
       amount: 450000, newRecipient: true, messageText: SCENARIOS[0].text,
-      channel: "call", outcome,
+      channel: "call", onCall: true, outcome,
     });
     invoke(render().button(back), "onClick");
     expect(render().form()).toBeDefined();

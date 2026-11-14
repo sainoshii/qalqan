@@ -6,7 +6,7 @@ import { AssessRequestSchema } from "@/lib/transfer/request";
 
 /**
  * POST /api/transfer/assess — оценка перевода перед подтверждением.
- * Вход:  { amount, newRecipient, messageText? }
+ * Вход:  { amount, newRecipient, messageText?, onCall? }
  * Выход: { decision: "allow" | "warn" | "intervene", riskScore, reasons[], message }
  * Ничего не сохраняет. Реквизиты получателя не принимаются.
  */
@@ -21,8 +21,8 @@ export async function POST(request: Request) {
   const parsed = AssessRequestSchema.safeParse(body.data);
   if (!parsed.success) return jsonError(400, parsed.error.issues[0]?.message ?? "Некорректный запрос");
 
-  const { amount, newRecipient, messageText } = parsed.data;
+  const { amount, newRecipient, messageText, onCall } = parsed.data;
   const message = messageText ? await analyzeMessage(messageText) : null;
-  const assessment = assessTransfer({ amount, newRecipient, message });
+  const assessment = assessTransfer({ amount, newRecipient, message, onCall });
   return Response.json({ ...assessment, message }, { headers: { "Cache-Control": "no-store" } });
 }

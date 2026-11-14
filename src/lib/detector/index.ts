@@ -3,6 +3,7 @@ import { maskSensitive } from "../privacy";
 import { askLlm, llmConfigured, type LlmVerdict } from "./llm";
 import { CompiledModel, type ModelVerdict, type ModelWeights } from "./model";
 import weights from "./model-weights.json";
+import { findHighlights } from "./highlights";
 import { detectLanguage, evaluateRules, type RuleResult } from "./rules";
 
 /**
@@ -144,7 +145,9 @@ export async function analyzeMessage(text: string, options: AnalyzeOptions = {})
         ? "model"
         : "none";
   const level = combined.riskScore >= HIGH_RISK ? "high" : combined.riskScore >= 40 ? "medium" : "low";
-  return { ...combined, recommendation: RECOMMENDATIONS[level], evidence };
+  const highlights = combined.riskScore >= 40 ? findHighlights(text, rules.signals) : [];
+  return { ...combined, recommendation: RECOMMENDATIONS[level], evidence, highlights };
 }
 
 export { detectLanguage, evaluateRules } from "./rules";
+export { findHighlights } from "./highlights";

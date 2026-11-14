@@ -7,7 +7,7 @@ import { CaseRequestSchema } from "@/lib/transfer/request";
 
 /**
  * POST /api/cases — зафиксировать исход попытки перевода для панели антифрода.
- * Вход: { amount, newRecipient, messageText?, channel?, outcome }
+ * Вход: { amount, newRecipient, messageText?, onCall?, channel?, outcome }
  *
  * Риск пересчитывается на сервере: клиент не может прислать «нужный» скор.
  * Сохраняются только случаи с подозрением (риск >= 40) и только замаскированный фрагмент.
@@ -25,11 +25,11 @@ export async function POST(request: Request) {
   const parsed = CaseRequestSchema.safeParse(body.data);
   if (!parsed.success) return jsonError(400, parsed.error.issues[0]?.message ?? "Некорректный запрос");
 
-  const { amount, newRecipient, messageText, channel, outcome } = parsed.data;
+  const { amount, newRecipient, messageText, onCall, channel, outcome } = parsed.data;
   if (!messageText) return Response.json({ stored: false, reason: "нет подозрительного сообщения" });
 
   const analysis = await analyzeMessage(messageText);
-  const assessment = assessTransfer({ amount, newRecipient, message: analysis });
+  const assessment = assessTransfer({ amount, newRecipient, message: analysis, onCall });
   if (assessment.riskScore < WARN_RISK) return Response.json({ stored: false, reason: "риск ниже порога" });
 
   try {

@@ -38,7 +38,7 @@ describe("cycle 2: independent negation and quotation regressions", () => {
     }));
     expect(response.status).toBe(200);
     const body = await response.json();
-    expect(Object.keys(body).sort()).toEqual(["evidence", "mode", "reasons", "recommendation", "riskScore", "scamType"]);
+    expect(Object.keys(body).sort()).toEqual(["evidence", "highlights", "mode", "reasons", "recommendation", "riskScore", "scamType"]);
     expect(body.evidence).toBe("rules");
     expect(JSON.stringify(body)).not.toMatch(/123456|synthetic-private-marker/);
   });

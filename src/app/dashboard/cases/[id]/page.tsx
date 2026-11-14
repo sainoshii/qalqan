@@ -5,7 +5,10 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { CHANNEL_LABELS, LANGUAGE_LABELS, OUTCOME_LABELS, STATUS_LABELS, formatDateTime, tenge } from "@/components/dashboard/labels";
 import { RiskPill, StatusPill } from "@/components/dashboard/Pills";
+import { HighlightedText } from "@/components/HighlightedText";
 import { db } from "@/lib/cases/repository";
+import { findHighlights } from "@/lib/detector/highlights";
+import { evaluateRules } from "@/lib/detector/rules";
 import { STATUS_TRANSITIONS, getCase } from "@/lib/dashboard/queries";
 import { SCAM_TYPE_LABELS, type CaseStatus } from "@/lib/domain";
 import { changeStatus } from "./actions";
@@ -91,7 +94,7 @@ async function CaseData({ params, searchParams }: CaseProps) {
           Сообщение (фрагмент, чувствительные данные скрыты)
         </h2>
         <blockquote className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-800 dark:bg-zinc-900">
-          {c.textExcerpt}
+          <HighlightedText text={c.textExcerpt} highlights={findHighlights(c.textExcerpt, evaluateRules(c.textExcerpt).signals)} />
         </blockquote>
       </section>
 

@@ -34,6 +34,17 @@ export const SCAM_TYPE_LABELS: Record<ScamType, string> = {
   marketplace: "Мошенничество на маркетплейсе",
 };
 
+/**
+ * Подсвеченный фрагмент текста: на нём сработал признак правил.
+ * start/end — позиции в UTF-16 (`text.slice(start, end)`) в тексте, который анализировался
+ * (для `/api/analyze` — после обрезки пробелов по краям).
+ */
+export interface Highlight {
+  start: number;
+  end: number;
+  reason: string; // объяснение для клиента (несколько — через « · »)
+}
+
 /** Результат анализа сообщения — контракт `/api/analyze`. */
 export interface AnalysisResult {
   riskScore: number; // 0–100
@@ -47,6 +58,8 @@ export interface AnalysisResult {
    * none — признаков нет. Отсутствует — неизвестно (трактуется как неподтверждённый риск).
    */
   evidence?: "rules" | "llm" | "model" | "none";
+  /** Опасные фрагменты текста (только при риске от 40). */
+  highlights?: Highlight[];
 }
 
 export const CASE_STATUSES = ["new", "reviewing", "confirmed_fraud", "false_positive"] as const;

@@ -106,7 +106,7 @@ curl -X POST https://qalqan-one.vercel.app/api/analyze \
 | Маршрут | Назначение |
 |---|---|
 | `POST /api/analyze` | анализ текста `{ text, lang? }` |
-| `POST /api/transfer/assess` | оценка перевода `{ amount, newRecipient, messageText? }` |
+| `POST /api/transfer/assess` | оценка перевода `{ amount, newRecipient, messageText?, onCall? }` |
 | `POST /api/cases` | запись исхода для панели (риск пересчитывается на сервере) |
 | `GET /api/health` | состояние базы для диагностики (без адреса и токенов) |
 
@@ -144,7 +144,7 @@ curl -X POST https://qalqan-one.vercel.app/api/analyze \
 ## Стек
 
 TypeScript · Next.js 16 (App Router) · React 19 · Tailwind CSS 4 · libSQL / Turso (SQLite) ·
-Zod · Claude API (опционально) · Vitest (453 теста) · Vercel.
+Zod · Claude API (опционально) · Vitest (584 теста) · Vercel.
 
 ## Структура репозитория
 

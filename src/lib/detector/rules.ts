@@ -24,14 +24,18 @@ export interface Signal {
 /** Домены, которые считаются официальными (ссылки на них не подозрительны). */
 const TRUSTED_DOMAINS = ["bcc.kz", "egov.kz", "gov.kz", "nationalbank.kz", "kaspi.kz", "kazpost.kz", "halykbank.kz"];
 
-const URL_PATTERN = /(?:https?:\/\/)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s]*)?/gi;
+export const SUSPICIOUS_LINK_REASON = "Ссылка ведёт на сайт, который не принадлежит банку или госоргану";
+
+export const URL_PATTERN = /(?:https?:\/\/)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s]*)?/gi;
+
+export function isTrustedLink(link: string): boolean {
+  const host = link.replace(/^https?:\/\//i, "").split("/")[0].toLowerCase();
+  return TRUSTED_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`));
+}
 
 export function suspiciousLinks(text: string): string[] {
   const links = text.match(URL_PATTERN) ?? [];
-  return links.filter((link) => {
-    const host = link.replace(/^https?:\/\//i, "").split("/")[0].toLowerCase();
-    return !TRUSTED_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`));
-  });
+  return links.filter((link) => !isTrustedLink(link));
 }
 
 const PHONE_IN_TEXT = /(?:\+\s?7|(?<!\d)8)[\s(-]*\d{3}[\s)-]*\d{3}[\s-]*\d{2}[\s-]*\d{2}/;
@@ -338,10 +342,10 @@ export function detectLanguage(text: string): Language {
  * в таких текстах слова мошенника приводятся как цитата. Контекст определяется по словам,
  * которые разоблачают цитату («уловка», «не верьте», «алдау»), а не по слову «памятка».
  */
-const WARNING_CONTEXT =
+export const WARNING_CONTEXT =
   /(?<!не )уловк|это (?:обман|развод)|не верьте|не ведитесь|не заполняйте|пожалуйтесь|фальшив|лжесотрудник|участились|мне (?:звонил|звонили|пишут|написали)|мошенники (?:пишут|звонят|рассылают)|положила? трубку|(?<!\p{L})алдау(?!\p{L})|сенбеңіз|деуі мүмкін|мәжбүрлеп жүр|жалған қоңырау|тұтқаны қойдым|алаяқтар .{0,20}жазып/u;
 
-const QUOTED = /«[^»]{0,300}»|"[^"]{0,300}"|“[^”]{0,300}”/g;
+export const QUOTED = /«[^»]{0,300}»|"[^"]{0,300}"|“[^”]{0,300}”/g;
 
 /**
  * Однозначный признак (просьба кода, «безопасный счёт», удалённый доступ…) засчитывается
@@ -379,7 +383,7 @@ export function evaluateRules(text: string): RuleResult {
   if (links.length > 0) {
     score += 55;
     ids.push("suspicious_link");
-    reasons.push("Ссылка ведёт на сайт, который не принадлежит банку или госоргану");
+    reasons.push(SUSPICIOUS_LINK_REASON);
   }
   // Номер телефона в SMS «от банка» с угрозой — типичный приём
   if (PHONE_IN_TEXT.test(full) && ids.includes("threat") && !ids.includes("callback_number")) score += 10;

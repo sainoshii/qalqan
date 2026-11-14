@@ -20,6 +20,8 @@ export const AssessRequestSchema = z.object({
   amount,
   newRecipient: z.boolean({ error: "newRecipient: true или false" }),
   messageText,
+  /** Сигнал устройства: во время перевода идёт телефонный разговор. */
+  onCall: z.boolean({ error: "onCall: true или false" }).optional(),
 });
 
 export const CaseRequestSchema = AssessRequestSchema.extend({

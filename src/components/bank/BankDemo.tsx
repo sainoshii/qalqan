@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { SCAM_TYPE_LABELS, riskLevel, type AnalysisResult, type CaseOutcome } from "@/lib/domain";
+import { HighlightedText } from "@/components/HighlightedText";
 import { RECIPIENTS, SCENARIOS, type Recipient, type Scenario } from "./scenarios";
 
 /** Пауза перед тем, как клиент сможет продолжить рискованный перевод (в демо — короткая). */
@@ -25,6 +26,7 @@ interface Attempt {
   recipient: Recipient;
   messageText: string;
   channel?: Scenario["channel"];
+  onCall: boolean;
 }
 
 const tenge = (n: number) => `${n.toLocaleString("ru-RU")} ₸`;
@@ -65,6 +67,9 @@ export function BankDemo() {
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [customText, setCustomText] = useState("");
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
+  const [analyzedText, setAnalyzedText] = useState("");
+  // Сигнал устройства «идёт телефонный разговор» (в демо — переключатель)
+  const [onCall, setOnCall] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
 
   const [recipientId, setRecipientId] = useState("new");
@@ -106,18 +111,23 @@ export function BankDemo() {
     }
   }, [step]);
 
-  async function analyze(text: string) {
+  async function analyze(raw: string) {
     const seq = ++analyzeSeq.current;
+    // Сервер обрезает пробелы по краям — позиции подсветки относятся к обрезанному тексту
+    const text = raw.trim();
     setAnalysis(null);
     setError(null);
-    if (!text.trim()) {
+    if (!text) {
       setAnalyzing(false);
       return;
     }
     setAnalyzing(true);
     try {
       const result = await postJson<AnalysisResult>("/api/analyze", { text });
-      if (seq === analyzeSeq.current) setAnalysis(result);
+      if (seq === analyzeSeq.current) {
+        setAnalyzedText(text);
+        setAnalysis(result);
+      }
     } catch (e) {
       if (seq === analyzeSeq.current) setError(e instanceof Error ? e.message : "Не удалось проверить сообщение");
     } finally {
@@ -128,6 +138,8 @@ export function BankDemo() {
   function pickScenario(s: Scenario) {
     setScenario(s);
     setCustomText("");
+    // Расшифровка звонка: разговор, как правило, ещё идёт
+    setOnCall(s.channel === "call");
     void analyze(s.text);
   }
 
@@ -139,6 +151,7 @@ export function BankDemo() {
       newRecipient: !attempt.recipient.known,
       messageText: attempt.messageText || undefined,
       channel: attempt.channel,
+      onCall: attempt.onCall,
       outcome,
     }).catch(() => undefined);
   }
@@ -146,7 +159,7 @@ export function BankDemo() {
   async function submitTransfer(e: React.FormEvent) {
     e.preventDefault();
     if (!amountValid || busy) return;
-    const current: Attempt = { amount: amountNumber, recipient, messageText, channel: scenario?.channel };
+    const current: Attempt = { amount: amountNumber, recipient, messageText, channel: scenario?.channel, onCall };
     const seq = ++assessSeq.current;
     setBusy(true);
     setError(null);
@@ -155,6 +168,7 @@ export function BankDemo() {
         amount: current.amount,
         newRecipient: !current.recipient.known,
         messageText: current.messageText || undefined,
+        onCall: current.onCall,
       });
       if (seq !== assessSeq.current) return;
       setAttempt(current);
@@ -246,13 +260,29 @@ export function BankDemo() {
           </button>
         </div>
 
+        <label className={`${card} flex cursor-pointer items-start gap-3`}>
+          <input type="checkbox" checked={onCall} onChange={(e) => setOnCall(e.target.checked)} className="mt-1 size-4 accent-emerald-600" />
+          <span className="text-sm">
+            <span className="block font-medium">Клиент сейчас разговаривает по телефону</span>
+            <span className="block text-xs text-zinc-500">
+              Сигнал устройства: в продукте его передаёт телефон с согласия клиента. Звонок во время перевода новому
+              получателю — частый признак того, что клиента «ведут».
+            </span>
+          </span>
+        </label>
+
         <div className={card} aria-live="polite">
           <h3 className="text-sm font-semibold">Анализ Qalqan</h3>
           {analyzing && <p className="mt-2 text-sm text-zinc-500">Проверяем…</p>}
           {!analyzing && !analysis && <p className="mt-2 text-sm text-zinc-500">Сообщение не выбрано — перевод оценивается без контекста.</p>}
           {analysis && (
             <div className="mt-2 flex flex-col gap-2 text-sm">
-              {scenario && <blockquote className="border-l-2 border-zinc-300 pl-3 text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">{scenario.text}</blockquote>}
+              <blockquote className="border-l-2 border-zinc-300 pl-3 text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
+                <HighlightedText text={analyzedText} highlights={analysis.highlights} />
+              </blockquote>
+              {(analysis.highlights?.length ?? 0) > 0 && (
+                <p className="text-xs text-zinc-500">Выделено то, что насторожило Qalqan. Наведите на фрагмент — появится объяснение.</p>
+              )}
               <div className="flex flex-wrap items-center gap-2">
                 <RiskBadge score={analysis.riskScore} />
                 {analysis.scamType && <span className="text-xs text-zinc-600 dark:text-zinc-400">{SCAM_TYPE_LABELS[analysis.scamType]}</span>}
@@ -279,6 +309,12 @@ export function BankDemo() {
           2. Перевод в мобильном банке
         </h2>
         <div className="mx-auto max-w-[400px] rounded-[2rem] border border-zinc-300 bg-zinc-50 p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-950">
+          {onCall && (
+            <p className="mb-3 flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-3 py-1 text-xs font-medium text-white">
+              <span aria-hidden="true" className="size-2 animate-pulse rounded-full bg-white" />
+              Идёт телефонный разговор
+            </p>
+          )}
           <div className="mb-4 flex items-center justify-between text-xs text-zinc-500">
             <span className="font-semibold text-emerald-700 dark:text-emerald-400">Демо-банк</span>
             <span>Баланс: {tenge(1_280_500)}</span>
@@ -387,6 +423,15 @@ export function BankDemo() {
                   ))}
                 </ul>
               </div>
+
+              {attempt.messageText && (assessment.message?.highlights?.length ?? 0) > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold">Что вам сказали</h4>
+                  <blockquote className="mt-2 max-h-40 overflow-y-auto rounded-xl border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+                    <HighlightedText text={attempt.messageText} highlights={assessment.message?.highlights} />
+                  </blockquote>
+                </div>
+              )}
 
               <p className="rounded-xl bg-zinc-100 p-3 text-sm dark:bg-zinc-900">
                 Банк никогда не просит переводить деньги на «безопасный счёт» и не спрашивает коды. Положите трубку и сами
