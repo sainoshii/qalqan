@@ -336,80 +336,26 @@ const WARNING_CONTEXT =
 const QUOTED = /«[^»]{0,300}»|"[^"]{0,300}"|“[^”]{0,300}”/g;
 
 /**
- * Отрицание засчитывается только как утверждение о том, чего банк НЕ делает:
- * «не просит», «не звонят», «не требует», «сұрамайды», «жалған», «лже…». Любое другое «не»
- * («никогда не сомневайтесь», «не забывайте») требование не гасит.
+ * Однозначный признак (просьба кода, «безопасный счёт», удалённый доступ…) засчитывается
+ * ВСЕГДА — как бы ни была построена фраза. Попытки отличить предупреждение банка
+ * («банк никогда не просит код») от уловки («не спрашивайте зачем и назовите код»)
+ * регулярными выражениями обходятся подбором слов (3 цикла ревью это показали), поэтому
+ * правила работают «на отказ»: пропущенная схема стоит клиенту сбережений, ложная тревога —
+ * паузы. Различать такие тексты по смыслу — задача LLM-слоя (подключается ключом).
+ * Шаблоны проверяются по всему тексту, поэтому требование в соседнем предложении не теряется.
  */
-const NEGATED =
-  /(?<!\p{L})не (?:просит|просят|спрашива\p{L}*|звонит|звонят|требует|требуют|присылает|присылают)(?!\p{L})|жалған|(?<!\p{L})лже/u;
-/** В казахском отрицающий глагол стоит в конце фразы, после требования. */
-const NEGATED_AFTER_KK = /сұрамайды|талап етпейді|сұрамаймыз|талап етпейміз/u;
-
-/** Граница фразы: отрицание до неё к требованию после неё не относится. */
-const CLAUSE_BREAK = /[.!?…,;:\n]/g;
-
-/**
- * Цитата с требованием — пример слов мошенника (а не инструкция), только если она явно подана
- * так: перед ней «пишет», «говорят», «фраза», «мошенник», «не выполняйте»… или после неё
- * «— это уловка», «деуі мүмкін», «деген». Иначе требование в кавычках засчитывается.
- */
-const QUOTE_ATTRIBUTION_BEFORE =
-  /(?:пиш\p{L}*|говор\p{L}*|скаж\p{L}*|фраз\p{L}*|слова|мошенник\p{L}*|алаяқ\p{L}*|(?<!\p{L})не (?:выполня|дела|следу|повторя|отвеча|верь|ведит)\p{L}*|орындамаңыз|жазады|айтады)[^«"“.!?\n]{0,30}$/u;
-const QUOTE_ATTRIBUTION_AFTER = /^\s*(?:[—–-]\s*)?(?:это\s+)?(?:уловк|обман|развод|ложь|алдау|деуі|дейді|деп|деген)/u;
-
-/**
- * Отрицается ли требование, найденное с позиции `index`: отрицание должно стоять перед ним
- * в той же фразе («банк никогда не просит установить AnyDesk»). «Никогда не сомневайтесь,
- * назовите код» — отрицание в другой фразе, требование засчитывается.
- */
-function negatedAt(text: string, index: number): boolean {
-  let before = text.slice(Math.max(0, index - 60), index);
-  const breaks = [...before.matchAll(CLAUSE_BREAK)];
-  if (breaks.length) before = before.slice((breaks.at(-1)?.index ?? -1) + 1);
-  if (NEGATED.test(before)) return true;
-  const rest = text.slice(index, index + 80);
-  const end = rest.search(/[.!?…,;:\n]/);
-  return NEGATED_AFTER_KK.test(end >= 0 ? rest.slice(0, end) : rest);
-}
-
-function quoteSpans(text: string): Array<[number, number]> {
-  return [...text.matchAll(QUOTED)].map((m) => [m.index ?? 0, (m.index ?? 0) + m[0].length]);
-}
-
-/**
- * Однозначный признак засчитывается, если хотя бы одно его совпадение — не отрицаемое и не
- * цитата-пример в предупреждении. Шаблоны проверяются по всему тексту, поэтому требование,
- * растянутое на два предложения, не теряется.
- */
-function strongFires(sig: Signal, text: string, isWarning: boolean, quotes: Array<[number, number]>): boolean {
-  for (const p of sig.patterns) {
-    const re = new RegExp(p.source, p.flags.includes("g") ? p.flags : `${p.flags}g`);
-    for (const m of text.matchAll(re)) {
-      const at = m.index ?? 0;
-      if (negatedAt(text, at)) continue;
-      const quote = quotes.find(([qs, qe]) => at >= qs && at < qe);
-      if (
-        isWarning &&
-        quote &&
-        (QUOTE_ATTRIBUTION_BEFORE.test(text.slice(Math.max(0, quote[0] - 60), quote[0])) ||
-          QUOTE_ATTRIBUTION_AFTER.test(text.slice(quote[1], quote[1] + 40)))
-      )
-        continue;
-      return true;
-    }
-  }
-  return false;
+function strongFires(sig: Signal, text: string): boolean {
+  return sig.patterns.some((p) => p.test(text));
 }
 
 export function evaluateRules(text: string): RuleResult {
   const full = normalize(text);
   const isWarning = WARNING_CONTEXT.test(full);
-  const quotes = quoteSpans(full);
   // Слабые признаки в предупреждении не считаются по цитатам — это слова мошенника, а не просьба
   const weakText = isWarning ? full.replace(QUOTED, " ") : full;
 
   const fired = SIGNALS.filter((sig) =>
-    sig.strong ? strongFires(sig, full, isWarning, quotes) : sig.patterns.some((p) => p.test(weakText)),
+    sig.strong ? strongFires(sig, full) : sig.patterns.some((p) => p.test(weakText)),
   );
   const links = suspiciousLinks(weakText);
   const strong = fired.some((s) => s.strong) || links.length > 0;

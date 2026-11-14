@@ -16,12 +16,17 @@ describe("cycle 2: C2-C4 and C7 regression probes, no network", () => {
     },
   );
 
+  it("C2: investment disclaimer stays below the threshold", () => {
+    expect(evaluateRules("Доходность не гарантирована. Цена бумаг может снизиться.").score).toBeLessThan(HIGH_RISK);
+  });
+
+  // Решение лида (вариант A): однозначные требования засчитываются всегда, в том числе в цитатах
+  // памяток. Это принятые ложные тревоги — цена защиты от обходов формулировками.
   it.each([
     "Памятка: «Назовите код из SMS» — это уловка. Не верьте звонящему.",
     "Ескерту: «Ақшаны қауіпсіз шотқа аударыңыз» деген сөзге сенбеңіз.",
-    "Доходность не гарантирована. Цена бумаг может снизиться.",
-  ])("C2: keeps genuine warning or investment disclaimer below the threshold: %s", (text) => {
-    expect(evaluateRules(text).score).toBeLessThan(HIGH_RISK);
+  ])("variant A: a warning quoting a strong demand is an accepted false alarm: %s", (text) => {
+    expect(evaluateRules(text).strong).toBe(true);
   });
 
   it.each(["Назовите код из SMS.", "Установите AnyDesk.", "Переведите деньги на безопасный счет."])(

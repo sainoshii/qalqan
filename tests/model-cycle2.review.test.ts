@@ -20,11 +20,12 @@ describe("cycle 2: independent negation and quotation regressions", () => {
     expect(result.riskScore).toBeGreaterThanOrEqual(HIGH_RISK);
   });
 
-  it("does not treat a prohibited instruction as an executable quote", async () => {
+  // Решение лида (вариант A): цитата с однозначным требованием засчитывается всегда — даже в
+  // запрете её выполнять. Принятая ложная тревога; по смыслу такие тексты различает LLM-слой.
+  it("variant A: a quoted strong demand counts even when the reader is told not to follow it", async () => {
     const text = "Не верьте мошенникам. Не выполняйте инструкцию: «Назовите код из SMS».";
     const result = await analyzeMessage(text, { useLlm: false });
-    console.log(JSON.stringify({ text, rules: evaluateRules(text).score, final: result.riskScore }));
-    expect(result.riskScore).toBeLessThan(HIGH_RISK);
+    expect(result.riskScore).toBeGreaterThanOrEqual(HIGH_RISK);
   });
 
   it("API evidence is server-derived and does not echo submitted secrets or extra fields", async () => {
