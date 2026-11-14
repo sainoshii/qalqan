@@ -13,31 +13,40 @@ import { HELD_OUT_FILES, assertTrainable, crossValidate, trainModel } from "../s
 import { combineLocal } from "../src/lib/detector";
 import { evaluateRules } from "../src/lib/detector/rules";
 import { HIGH_RISK } from "../src/lib/domain";
+import { heldOutRepresentations, matchesHeldOut } from "../src/lib/feedback";
 
 export const TRAIN_FILES = [
   "data/dataset/messages.jsonl",
   "data/dataset/challenge-1.jsonl",
   "data/dataset/train-2.jsonl",
-  "data/dataset/train-3.jsonl", // участник A; пока файла нет — пропускается
+  "data/dataset/train-3.jsonl", // участник A
+  "data/dataset/feedback.jsonl", // решения аналитиков: npm run feedback:export; нет файла — пропускается
 ];
 
 const HELD_OUT_PATHS = HELD_OUT_FILES.map((f) => `data/dataset/${f}`);
-const normText = (t: string) => t.toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim();
+export const normText = (t: string) => t.toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim();
 
 /**
  * Защита отложенных выборок не только по имени: файл-ссылка (symlink) или копия под другим
  * именем тоже отклоняются — по реальному пути и по совпадению текстов.
  */
-function heldOutGuard() {
+export function heldOutGuard() {
   const real = new Set<string>();
   const texts = new Set<string>();
   for (const f of HELD_OUT_PATHS) {
+    let content: string;
     try {
+      content = readFileSync(f, "utf8");
       real.add(realpathSync(f));
-      for (const item of parseDataset(readFileSync(f, "utf8")).items) texts.add(normText(item.text));
-    } catch {
-      // набор ещё не создан
+    } catch (err) {
+      // набора нет (challenge-3 не создавался) — пропускаем; любая другая ошибка — стоп
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") continue;
+      throw err;
     }
+    const { items, errors } = parseDataset(content);
+    if (errors.length) throw new Error(`Отложенная выборка ${f} некорректна — защита от утечки невозможна:\n${errors.join("\n")}`);
+    // Тексты могут попасть в обучение замаскированными или обрезанными (из базы) — храним все представления
+    for (const item of items) for (const r of heldOutRepresentations(item.text)) texts.add(r);
   }
   return { real, texts };
 }
@@ -56,7 +65,7 @@ export function loadTraining(files = TRAIN_FILES): DatasetItem[] {
     if (guard.real.has(realpathSync(f))) throw new Error(`Отложенная выборка под другим именем: ${f}`);
     const { items: parsed, errors } = parseDataset(text);
     if (errors.length) throw new Error(`${f}:\n${errors.join("\n")}`);
-    const leaked = parsed.filter((i) => guard.texts.has(normText(i.text)));
+    const leaked = parsed.filter((i) => matchesHeldOut(i.text, guard.texts));
     if (leaked.length) throw new Error(`Отложенные тексты в обучающем файле ${f}: ${leaked.map((i) => i.id).join(", ")}`);
     items.push(...parsed);
   }

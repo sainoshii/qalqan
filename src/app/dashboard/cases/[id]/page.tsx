@@ -157,6 +157,11 @@ async function CaseData({ params, searchParams }: CaseProps) {
             </form>
           ))}
         </div>
+        <p className="text-xs text-zinc-500">
+          {c.synthetic
+            ? "Синтетический случай — в обучение модели не попадает."
+            : "Решение «подтверждено» или «ложное срабатывание» попадёт в обучающие данные модели при следующей выгрузке (npm run feedback:export → npm run train)."}
+        </p>
       </section>
     </main>
   );
