@@ -77,7 +77,7 @@ describe("гибрид правил и LLM", () => {
 
   it("с LLM — режим hybrid, причины объединяются без повторов", async () => {
     const llm = vi.fn().mockResolvedValue({ riskScore: 95, scamType: "fake_security_service", reasons: ["Звонящий торопит вас"] });
-    const r = await analyzeMessage(scam, { llm });
+    const r = await analyzeMessage(scam, { llm, llmZone: "all" });
     expect(r.mode).toBe("hybrid");
     expect(r.reasons).toContain("Звонящий торопит вас");
     expect(new Set(r.reasons).size).toBe(r.reasons.length);
@@ -86,7 +86,7 @@ describe("гибрид правил и LLM", () => {
 
   it("в LLM уходит только замаскированный текст", async () => {
     const llm = vi.fn().mockResolvedValue(null);
-    await analyzeMessage("Назовите код. Карта 4400 4301 2345 6789, телефон +7 701 555 12 34", { llm });
+    await analyzeMessage("Назовите код. Карта 4400 4301 2345 6789, телефон +7 701 555 12 34", { llm, llmZone: "all" });
     const sent = llm.mock.calls[0][0] as string;
     expect(sent).toContain("[КАРТА]");
     expect(sent).toContain("[ТЕЛЕФОН]");
@@ -97,7 +97,7 @@ describe("гибрид правил и LLM", () => {
     ["исключение (таймаут, сеть)", () => Promise.reject(new Error("timeout"))],
     ["пустой ответ (отказ, нет ключа)", () => Promise.resolve(null)],
   ])("сбой LLM — фолбэк на правила: %s", async (_, llm) => {
-    const r = await analyzeMessage(scam, { llm });
+    const r = await analyzeMessage(scam, { llm, llmZone: "all" });
     expect(r.mode).toBe("rules");
     expect(r.riskScore).toBeGreaterThanOrEqual(HIGH_RISK);
   });

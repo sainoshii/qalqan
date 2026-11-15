@@ -1,6 +1,7 @@
 import { HIGH_RISK, type AnalysisResult, type Language } from "../domain";
 import { maskSensitive } from "../privacy";
 import { askLlm, llmConfigured, type LlmVerdict } from "./llm";
+import { inLlmZone, llmBreaker, llmZoneFromEnv, type LlmZone } from "./llm-gate";
 import { CompiledModel, type ModelVerdict, type ModelWeights } from "./model";
 import weights from "./model-weights.json";
 import { findHighlights } from "./highlights";
@@ -13,14 +14,16 @@ import { detectLanguage, evaluateRules, type RuleResult } from "./rules";
  * 1. Правила — всегда: быстро, без сети, объяснимо; однозначные признаки дают нижнюю границу риска.
  * 2. Статистическая модель (символьные n-граммы, `npm run train`) — всегда: ловит
  *    перефразированные схемы, которые правила пропускают. Работает локально, бесплатно.
- * 3. LLM — если настроена: уточняет скор и добавляет объяснения. При любой ошибке LLM
- *    результат даёт локальный слой (правила + модель) — `mode: "rules"`.
+ * 3. LLM — если настроена и локальный риск в «серой зоне» (см. llm-gate.ts): уточняет скор
+ *    и добавляет объяснения. При любой ошибке LLM результат даёт локальный слой — `mode: "rules"`.
  */
 export interface AnalyzeOptions {
   /** Язык, если известен; иначе определяется автоматически. */
   lang?: Language;
   /** Разрешить вызов LLM (по умолчанию — если задан ANTHROPIC_API_KEY). */
   useLlm?: boolean;
+  /** Для какого локального риска звать LLM (по умолчанию — QALQAN_LLM_ZONE, иначе 30–69). */
+  llmZone?: LlmZone;
   /** Подмена вызова LLM (для тестов). */
   llm?: (maskedText: string, lang: Language) => Promise<LlmVerdict | null>;
   /** Использовать статистическую модель (по умолчанию да). */
@@ -124,13 +127,18 @@ export async function analyzeMessage(text: string, options: AnalyzeOptions = {})
   const rules = combineLocal(evaluateRules(text), model, text);
 
   const useLlm = options.useLlm ?? (options.llm !== undefined || llmConfigured());
+  const zone = options.llmZone ?? llmZoneFromEnv();
   let verdict: LlmVerdict | null = null;
-  if (useLlm) {
+  // Автоотключение защищает настоящий вызов API; подменённую в тестах LLM не трогает
+  const breaker = options.llm ? null : llmBreaker;
+  if (useLlm && inLlmZone(rules.score, zone) && !breaker?.open()) {
     try {
       // В LLM уходит только замаскированный текст
       verdict = await (options.llm ?? askLlm)(maskSensitive(text), lang);
+      breaker?.success();
     } catch {
       verdict = null; // фолбэк на правила
+      breaker?.failure();
     }
   }
 

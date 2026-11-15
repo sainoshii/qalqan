@@ -42,6 +42,7 @@ describe("cycle 2: C2-C4 and C7 regression probes, no network", () => {
 
   it.each([80, 95, 100])("C4: a confident named LLM scheme raises zero rules at score %i", async (riskScore) => {
     const result = await analyzeMessage("Привет.", {
+      llmZone: "all",
       llm: async () => ({ riskScore, scamType: "marketplace", reasons: ["Синтетический вердикт для проверки объединения"] }),
     });
     expect(result.mode).toBe("hybrid");
@@ -67,7 +68,7 @@ describe("cycle 2: C2-C4 and C7 regression probes, no network", () => {
     "Растау үшін бір реттік құпиясөз: 4821.",
   ])("C7: masks a conventional code before the LLM boundary: %s", async (text) => {
     const llm = vi.fn(async () => null);
-    await analyzeMessage(text, { llm });
+    await analyzeMessage(text, { llm, llmZone: "all" });
     expect(llm).toHaveBeenCalledOnce();
     expect(llm.mock.calls[0]).toBeDefined();
     const sent = (llm.mock.calls as unknown as [string, string][])[0][0];
@@ -78,7 +79,7 @@ describe("cycle 2: C2-C4 and C7 regression probes, no network", () => {
   it("C7: a payment authorization OTP is not an order identifier", async () => {
     const text = "Код подтверждения оплаты заказа: 4821. Никому не сообщайте этот код.";
     const llm = vi.fn(async (_text: string) => { void _text; return null; });
-    await analyzeMessage(text, { llm });
+    await analyzeMessage(text, { llm, llmZone: "all" });
     console.log("C7_PAYMENT " + JSON.stringify({ masked: maskSensitive(text), sent: llm.mock.calls[0][0] }));
     expect(llm.mock.calls[0][0]).not.toContain("4821");
     expect(llm.mock.calls[0][0]).toContain("[КОД]");

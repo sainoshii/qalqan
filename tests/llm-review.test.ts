@@ -46,7 +46,7 @@ describe("review: actual LLM adapter with mocked SDK, no network", () => {
 
   it("masks conventional synthetic secrets before the SDK and disables retries", async () => {
     sdk.parse.mockResolvedValue({ stop_reason: "end_turn", parsed_output: { riskScore: 90, scamType: "code_request", reasons: ["  Просьба назвать секрет  ", ""] } });
-    const result = await analyzeMessage("Код: 4821. Карта 4400 4301 2345 6789. Телефон +7 701 555 12 34. ИИН 000000000000.", { lang: "kk" });
+    const result = await analyzeMessage("Код: 4821. Карта 4400 4301 2345 6789. Телефон +7 701 555 12 34. ИИН 000000000000.", { lang: "kk", llmZone: "all" });
     const [request, options] = sdk.parse.mock.calls[0];
     const sent = request.messages[0].content as string;
     expect(sent).toContain("Язык сообщения: казахский");
@@ -62,7 +62,7 @@ describe("review: actual LLM adapter with mocked SDK, no network", () => {
 
   it("C7: masks an OTP after a natural three-word purpose before sending it to the SDK", async () => {
     sdk.parse.mockResolvedValue({ stop_reason: "refusal", parsed_output: null });
-    await analyzeMessage("Код для подтверждения перевода: 4821. Никому его не передавайте.");
+    await analyzeMessage("Код для подтверждения перевода: 4821. Никому его не передавайте.", { llmZone: "all" });
     const sent = sdk.parse.mock.calls[0][0].messages[0].content as string;
     expect(sent).not.toContain("4821");
     expect(sent).toContain("[КОД]");

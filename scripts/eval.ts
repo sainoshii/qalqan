@@ -14,6 +14,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { analyzeMessage } from "../src/lib/detector";
 import { parseDataset, type DatasetItem } from "../src/lib/dataset";
 import { HIGH_RISK } from "../src/lib/domain";
+import { describeLlmZone, inLlmZone, llmZoneFromEnv, type LlmZone } from "../src/lib/detector/llm-gate";
 
 export interface Scored {
   item: DatasetItem;
@@ -59,6 +60,40 @@ export async function scoreDataset(items: DatasetItem[], useLlm: boolean, useMod
   return rows;
 }
 
+/**
+ * Сколько сообщений ушло бы в LLM при данной «серой зоне» и какие ошибки локального слоя
+ * LLM даже не увидит. Считается по локальному риску (запуск без --llm), сети не нужно.
+ */
+export interface LlmPlan {
+  n: number;
+  asked: number; // ушло бы в LLM
+  askedScam: number; // из них мошеннических — LLM может поднять риск до высокого
+  askedLegit: number; // из них обычных — LLM может ошибочно поднять риск
+  missedBelow: number; // мошеннические ниже зоны: LLM их не увидит, останутся пропущенными
+  falseAbove: number; // обычные выше зоны: ложное срабатывание, LLM его не исправит
+}
+
+export function llmPlan(rows: Scored[], zone: LlmZone): LlmPlan {
+  const asked = rows.filter((r) => inLlmZone(r.riskScore, zone));
+  const outside = rows.filter((r) => !inLlmZone(r.riskScore, zone));
+  return {
+    n: rows.length,
+    asked: asked.length,
+    askedScam: asked.filter((r) => r.item.label === "scam").length,
+    askedLegit: asked.filter((r) => r.item.label === "legit").length,
+    missedBelow: outside.filter((r) => r.item.label === "scam" && r.riskScore < HIGH_RISK).length,
+    falseAbove: outside.filter((r) => r.item.label === "legit" && r.riskScore >= HIGH_RISK).length,
+  };
+}
+
+export function formatLlmPlan(plan: LlmPlan, zone: LlmZone): string {
+  const share = plan.n ? Math.round((plan.asked / plan.n) * 100) : 0;
+  return [
+    `LLM («серая зона» ${describeLlmZone(zone)}): вызов для ${plan.asked} из ${plan.n} сообщений (${share}%) — мошеннических ${plan.askedScam}, обычных ${plan.askedLegit}.`,
+    `Вне зоны LLM не исправит: пропущенных мошеннических ${plan.missedBelow}, ложных срабатываний ${plan.falseAbove}.`,
+  ].join("\n");
+}
+
 const pct = (v: number | null) => (v === null ? "—" : `${(v * 100).toFixed(0)}%`);
 
 function table(rows: Scored[]): string {
@@ -102,6 +137,10 @@ async function main() {
   const out = table(rows);
   console.log(`Набор: ${file} (${items.length}). Режим: ${mode}. Порог мошенничества: riskScore >= ${HIGH_RISK}\n`);
   console.log(out);
+  if (!useLlm) {
+    const zone = llmZoneFromEnv();
+    console.log(`\n${formatLlmPlan(llmPlan(rows, zone), zone)}`);
+  }
 
   if (args.has("--verbose")) {
     console.log("\nОшибки:");

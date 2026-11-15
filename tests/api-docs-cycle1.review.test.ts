@@ -40,7 +40,7 @@ describe("api-docs cycle 1: integration guarantees", () => {
   it("rules mode can mean a configured LLM failed, not that no LLM was attempted", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "synthetic-review-key-not-a-secret");
     const { analyzeMessage } = await import("@/lib/detector");
-    expect((await analyzeMessage("Обычное синтетическое сообщение для проверки.")).mode).toBe("rules");
+    expect((await analyzeMessage("Обычное синтетическое сообщение для проверки.", { llmZone: "all" })).mode).toBe("rules");
     expect(llm.ask).toHaveBeenCalledOnce();
   });
 });

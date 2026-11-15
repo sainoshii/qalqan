@@ -16,7 +16,8 @@
     "eval": "node --import tsx scripts/eval.ts",
     "train": "node --import tsx scripts/train-model.ts",
     "feedback:export": "node --import tsx scripts/export-feedback.ts",
-    "bench": "node --import tsx scripts/bench.ts"
+    "bench": "node --import tsx scripts/bench.ts",
+    "llm:smoke": "node --env-file-if-exists=.env.local --import tsx scripts/llm-smoke.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",
