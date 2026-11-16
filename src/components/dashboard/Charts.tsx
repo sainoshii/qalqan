@@ -10,12 +10,13 @@ export function BarList({ title, rows }: { title: string; rows: Array<{ label: s
     <figure className="flex flex-col gap-3">
       <figcaption className="text-sm font-semibold">{title}</figcaption>
       {rows.length === 0 ? (
-        <p className="text-sm text-zinc-500">Нет данных</p>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">Нет данных</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {rows.map((r) => (
-            <li key={r.label} className="grid grid-cols-[minmax(0,45%)_1fr] sm:grid-cols-[minmax(0,14rem)_1fr] items-center gap-3 text-sm">
-              <span className="truncate text-zinc-700 dark:text-zinc-300" title={r.label}>
+            <li key={r.label} className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-[minmax(0,14rem)_1fr] sm:items-center sm:gap-3">
+              {/* На телефоне подпись целиком над полосой: подсказки при наведении там нет */}
+              <span className="text-zinc-700 sm:truncate dark:text-zinc-300" title={r.label}>
                 {r.label}
               </span>
               <span className="flex items-center gap-2">
@@ -41,7 +42,7 @@ export function DayColumns({ title, rows }: { title: string; rows: Array<{ day: 
     <figure className="flex flex-col gap-3">
       <figcaption className="flex items-baseline justify-between gap-2 text-sm">
         <span className="font-semibold">{title}</span>
-        <span className="text-zinc-500">всего {total}</span>
+        <span className="text-zinc-500 dark:text-zinc-400">всего {total}</span>
       </figcaption>
       <div className="flex h-36 items-end gap-[2px] border-b border-zinc-300 dark:border-zinc-700" aria-hidden>
         {rows.map((r) => (
@@ -56,7 +57,7 @@ export function DayColumns({ title, rows }: { title: string; rows: Array<{ day: 
           </div>
         ))}
       </div>
-      <div className="flex justify-between text-xs text-zinc-500" aria-hidden>
+      <div className="flex justify-between text-xs text-zinc-500 dark:text-zinc-400" aria-hidden>
         <span>{rows[0] && formatDay(rows[0].day)}</span>
         <span>{rows.at(-1) && formatDay(rows.at(-1)!.day)}</span>
       </div>

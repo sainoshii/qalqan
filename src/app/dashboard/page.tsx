@@ -20,9 +20,9 @@ const select =
 function Tile({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="flex flex-col gap-1 rounded-xl border border-zinc-200 p-4 dark:border-zinc-800">
-      <span className="text-xs text-zinc-500">{label}</span>
+      <span className="text-xs text-zinc-500 dark:text-zinc-400">{label}</span>
       <span className="text-xl font-semibold tabular-nums sm:text-2xl">{value}</span>
-      {hint && <span className="text-xs text-zinc-500">{hint}</span>}
+      {hint && <span className="text-xs text-zinc-500 dark:text-zinc-400">{hint}</span>}
     </div>
   );
 }
@@ -56,7 +56,7 @@ export default function DashboardPage({
         </p>
       </header>
 
-      <Suspense fallback={<p className="text-sm text-zinc-500" role="status">Загружаем случаи…</p>}>
+      <Suspense fallback={<p className="text-sm text-zinc-500 dark:text-zinc-400" role="status">Загружаем случаи…</p>}>
         <DashboardData searchParams={searchParams} />
       </Suspense>
     </main>
@@ -111,7 +111,7 @@ async function DashboardData({
             <br />
             Ложных срабатываний: <strong className="text-foreground tabular-nums">{stats.falsePositive}</strong>
           </p>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Ложные срабатывания помогают настраивать правила детектора без подгонки под отложенную выборку.
           </p>
         </div>
@@ -120,7 +120,7 @@ async function DashboardData({
       <section aria-labelledby="cases-title" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <h2 id="cases-title" className="text-lg font-semibold">
-            Случаи {filtered && <span className="font-normal text-zinc-500">· найдено {total}</span>}
+            Случаи {filtered && <span className="font-normal text-zinc-500 dark:text-zinc-400">· найдено {total}</span>}
           </h2>
         </div>
 
@@ -167,7 +167,7 @@ async function DashboardData({
               <option value="medium">Средний (40–69)</option>
             </select>
           </label>
-          <button type="submit" className="min-h-11 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700">
+          <button type="submit" className="min-h-11 rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800">
             Применить
           </button>
           {filtered && (
@@ -178,13 +178,13 @@ async function DashboardData({
         </form>
 
         {cases.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-zinc-300 p-6 text-sm text-zinc-500 dark:border-zinc-700">
+          <p className="rounded-xl border border-dashed border-zinc-300 p-6 text-sm text-zinc-500 dark:text-zinc-400 dark:border-zinc-700">
             Случаев не найдено. {filtered ? "Измените фильтры." : "Запустите npm run db:seed или пройдите сценарий в демо банка."}
           </p>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
             <table className="w-full min-w-[760px] text-left text-sm">
-              <thead className="bg-zinc-50 text-xs text-zinc-500 dark:bg-zinc-900">
+              <thead className="bg-zinc-50 text-xs text-zinc-500 dark:text-zinc-400 dark:bg-zinc-900">
                 <tr>
                   <th scope="col" className="px-3 py-2 font-medium">Время</th>
                   <th scope="col" className="px-3 py-2 font-medium">Риск</th>
@@ -207,7 +207,7 @@ async function DashboardData({
                     <td className="px-3 py-2">
                       <RiskPill score={c.riskScore} />
                     </td>
-                    <td className="px-3 py-2">{c.scamType ? SCAM_TYPE_LABELS[c.scamType] : <span className="text-zinc-500">—</span>}</td>
+                    <td className="px-3 py-2">{c.scamType ? SCAM_TYPE_LABELS[c.scamType] : <span className="text-zinc-500 dark:text-zinc-400">—</span>}</td>
                     <td className="px-3 py-2">
                       {CHANNEL_LABELS[c.channel]} · {c.language.toUpperCase()}
                     </td>
@@ -232,7 +232,7 @@ async function DashboardData({
             ) : (
               <span />
             )}
-            <span className="text-zinc-500">
+            <span className="text-zinc-500 dark:text-zinc-400">
               Страница {Math.min(filters.page, pages)} из {pages}
             </span>
             {filters.page < pages ? (

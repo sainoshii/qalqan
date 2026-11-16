@@ -49,7 +49,7 @@ export default function Home() {
             key={m.title}
             className="flex flex-col gap-2 rounded-xl border border-zinc-200 p-5 dark:border-zinc-800"
           >
-            <span className="text-xs font-medium text-zinc-500">{m.stage}</span>
+            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{m.stage}</span>
             <h2 className="font-semibold">{m.title}</h2>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">{m.text}</p>
             {m.href && (

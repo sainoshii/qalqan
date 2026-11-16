@@ -30,7 +30,7 @@ const ERRORS: Record<string, string> = {
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-[10rem_1fr] gap-3 py-2 text-sm">
-      <dt className="text-zinc-500">{label}</dt>
+      <dt className="text-zinc-500 dark:text-zinc-400">{label}</dt>
       <dd>{children}</dd>
     </div>
   );
@@ -45,7 +45,7 @@ export default function CasePage(props: CaseProps) {
   return (
     <Suspense
       fallback={
-        <main className="mx-auto w-full max-w-3xl px-4 py-10 text-sm text-zinc-500 sm:px-6" role="status">
+        <main className="mx-auto w-full max-w-3xl px-4 py-10 text-sm text-zinc-500 dark:text-zinc-400 sm:px-6" role="status">
           Загружаем случай…
         </main>
       }
@@ -76,9 +76,9 @@ async function CaseData({ params, searchParams }: CaseProps) {
           <RiskPill score={c.riskScore} />
           <StatusPill status={c.status} />
           {c.synthetic ? (
-            <span className="text-xs text-zinc-500">синтетический случай</span>
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">синтетический случай</span>
           ) : (
-            <span className="text-xs text-zinc-500">из демо мобильного банка</span>
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">из демо мобильного банка</span>
           )}
         </div>
       </header>
@@ -109,7 +109,7 @@ async function CaseData({ params, searchParams }: CaseProps) {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-zinc-500">Причины не сохранены.</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">Причины не сохранены.</p>
         )}
         <p className="text-sm text-zinc-600 dark:text-zinc-400">Рекомендация клиенту: {c.recommendation || "—"}</p>
       </section>
@@ -157,7 +157,7 @@ async function CaseData({ params, searchParams }: CaseProps) {
             </form>
           ))}
         </div>
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
           {c.synthetic
             ? "Синтетический случай — в обучение модели не попадает."
             : "Решение «подтверждено» или «ложное срабатывание» попадёт в обучающие данные модели при следующей выгрузке (npm run feedback:export → npm run train)."}

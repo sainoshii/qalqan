@@ -59,7 +59,7 @@ function RiskBadge({ score }: { score: number }) {
 }
 
 const btn = "min-h-11 rounded-xl px-4 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
-const primary = `${btn} bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:outline-emerald-600`;
+const primary = `${btn} bg-emerald-700 text-white hover:bg-emerald-800 focus-visible:outline-emerald-600`;
 const secondary = `${btn} border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800`;
 const card = "rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900";
 
@@ -229,7 +229,7 @@ export function BankDemo() {
                 }`}
               >
                 <span className="block font-medium">{s.title}</span>
-                <span className="block text-xs text-zinc-500">{s.from}</span>
+                <span className="block text-xs text-zinc-500 dark:text-zinc-400">{s.from}</span>
               </button>
             </li>
           ))}
@@ -264,7 +264,7 @@ export function BankDemo() {
           <input type="checkbox" checked={onCall} onChange={(e) => setOnCall(e.target.checked)} className="mt-1 size-4 accent-emerald-600" />
           <span className="text-sm">
             <span className="block font-medium">Клиент сейчас разговаривает по телефону</span>
-            <span className="block text-xs text-zinc-500">
+            <span className="block text-xs text-zinc-500 dark:text-zinc-400">
               Сигнал устройства: в продукте его передаёт телефон с согласия клиента. Звонок во время перевода новому
               получателю — частый признак того, что клиента «ведут».
             </span>
@@ -273,15 +273,15 @@ export function BankDemo() {
 
         <div className={card} aria-live="polite">
           <h3 className="text-sm font-semibold">Анализ Qalqan</h3>
-          {analyzing && <p className="mt-2 text-sm text-zinc-500">Проверяем…</p>}
-          {!analyzing && !analysis && <p className="mt-2 text-sm text-zinc-500">Сообщение не выбрано — перевод оценивается без контекста.</p>}
+          {analyzing && <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">Проверяем…</p>}
+          {!analyzing && !analysis && <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">Сообщение не выбрано — перевод оценивается без контекста.</p>}
           {analysis && (
             <div className="mt-2 flex flex-col gap-2 text-sm">
               <blockquote className="border-l-2 border-zinc-300 pl-3 text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
                 <HighlightedText text={analyzedText} highlights={analysis.highlights} />
               </blockquote>
               {(analysis.highlights?.length ?? 0) > 0 && (
-                <p className="text-xs text-zinc-500">Выделено то, что насторожило Qalqan. Наведите на фрагмент — появится объяснение.</p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">Выделено то, что насторожило Qalqan. Наведите на фрагмент — появится объяснение.</p>
               )}
               <div className="flex flex-wrap items-center gap-2">
                 <RiskBadge score={analysis.riskScore} />
@@ -295,8 +295,8 @@ export function BankDemo() {
                 </ul>
               )}
               <p className="text-zinc-600 dark:text-zinc-400">{analysis.recommendation}</p>
-              <p className="text-xs text-zinc-500">
-                Режим: {analysis.mode === "hybrid" ? "правила + LLM" : "правила (LLM не подключена)"}
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                Режим: {analysis.mode === "hybrid" ? "правила + модель + LLM" : "правила + модель, без LLM"}
               </p>
             </div>
           )}
@@ -310,12 +310,12 @@ export function BankDemo() {
         </h2>
         <div className="mx-auto max-w-[400px] rounded-[2rem] border border-zinc-300 bg-zinc-50 p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-950">
           {onCall && (
-            <p className="mb-3 flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-3 py-1 text-xs font-medium text-white">
+            <p className="mb-3 flex items-center justify-center gap-2 rounded-full bg-emerald-700 px-3 py-1 text-xs font-medium text-white">
               <span aria-hidden="true" className="size-2 animate-pulse rounded-full bg-white" />
               Идёт телефонный разговор
             </p>
           )}
-          <div className="mb-4 flex items-center justify-between text-xs text-zinc-500">
+          <div className="mb-4 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
             <span className="font-semibold text-emerald-700 dark:text-emerald-400">Демо-банк</span>
             <span>Баланс: {tenge(1_280_500)}</span>
           </div>
@@ -337,12 +337,12 @@ export function BankDemo() {
                     <input type="radio" name="recipient" value={r.id} checked={recipientId === r.id} onChange={() => setRecipientId(r.id)} className="accent-emerald-600" />
                     <span>
                       <span className="block font-medium">{r.name}</span>
-                      <span className="block text-xs text-zinc-500">{r.hint}</span>
+                      <span className="block text-xs text-zinc-500 dark:text-zinc-400">{r.hint}</span>
                     </span>
                   </label>
                 ))}
                 {!recipient.known && (
-                  <p className="text-xs text-zinc-500">В демо реквизиты не вводятся: номер карты получателя в Qalqan не передаётся.</p>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">В демо реквизиты не вводятся: номер карты получателя в Qalqan не передаётся.</p>
                 )}
               </fieldset>
 
@@ -482,7 +482,7 @@ export function BankDemo() {
                 Мы отправили запрос вашему доверенному человеку: <strong>Айгүл (дочь)</strong>. Перевод {tenge(attempt.amount)} не
                 будет выполнен, пока она не подтвердит. Деньги не списаны.
               </p>
-              <p className="text-xs text-zinc-500">В демо запрос не отправляется; в продукте — пуш и звонок доверенному лицу.</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">В демо запрос не отправляется; в продукте — пуш и звонок доверенному лицу.</p>
               <button type="button" className={primary} onClick={reset}>
                 Вернуться
               </button>

@@ -39,7 +39,7 @@ function Fields({ rows }: { rows: Array<[string, string, string]> }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[32rem] text-left text-sm">
-        <thead className="text-xs text-zinc-500">
+        <thead className="text-xs text-zinc-500 dark:text-zinc-400">
           <tr>
             <th className="py-2 pr-4 font-medium">Поле</th>
             <th className="py-2 pr-4 font-medium">Тип</th>
@@ -50,7 +50,7 @@ function Fields({ rows }: { rows: Array<[string, string, string]> }) {
           {rows.map(([name, type, text]) => (
             <tr key={name}>
               <td className="py-2 pr-4 align-top font-mono text-xs">{name}</td>
-              <td className="py-2 pr-4 align-top font-mono text-xs text-zinc-500">{type}</td>
+              <td className="py-2 pr-4 align-top font-mono text-xs text-zinc-500 dark:text-zinc-400">{type}</td>
               <td className="py-2 align-top text-zinc-700 dark:text-zinc-300">{text}</td>
             </tr>
           ))}
@@ -161,8 +161,8 @@ export default async function DocsPage() {
         </p>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[28rem] text-left text-sm">
-            <caption className="pb-2 text-left text-xs text-zinc-500">Как меняется решение (посчитано детектором)</caption>
-            <thead className="text-xs text-zinc-500">
+            <caption className="pb-2 text-left text-xs text-zinc-500 dark:text-zinc-400">Как меняется решение (посчитано детектором)</caption>
+            <thead className="text-xs text-zinc-500 dark:text-zinc-400">
               <tr>
                 <th className="py-2 pr-4 font-medium">Ситуация</th>
                 <th className="py-2 pr-4 font-medium">Риск</th>
@@ -218,7 +218,7 @@ export default async function DocsPage() {
 
       <Section id="deploy" title="Развёртывание в банке">
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          Node.js 20.9+: <code className="font-mono text-xs">npm ci &amp;&amp; npm run build &amp;&amp; npm start</code>. База —
+          Node.js 22.12+, 24 или 26+ (23 и 25 не поддерживаются; сам сервер работает и на 20.9+): <code className="font-mono text-xs">npm ci &amp;&amp; npm run build &amp;&amp; npm start</code>. База —
           любая libSQL/SQLite (нужна только для панели). LLM подключается ключом и необязательна. Скорость и методика замера —{" "}
           <a href="https://github.com/sainoshii/qalqan/blob/main/docs/performance.md" className="text-emerald-700 hover:underline dark:text-emerald-400">
             docs/performance.md

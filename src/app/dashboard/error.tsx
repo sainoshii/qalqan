@@ -10,12 +10,12 @@ export default function DashboardError({ error, retry }: { error: unknown; retry
       <p className="text-zinc-600 dark:text-zinc-400">
         Не удалось получить данные из базы. Демо мобильного банка и анализ сообщений при этом работают.
       </p>
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-zinc-500 dark:text-zinc-400">
         Диагностика: <a href="/api/health" className="text-emerald-700 underline dark:text-emerald-400">/api/health</a>
         {digest && <> · код {digest}</>}
       </p>
       <div className="flex flex-wrap gap-3">
-        <button type="button" onClick={() => retry()} className="min-h-11 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white hover:bg-emerald-700">
+        <button type="button" onClick={() => retry()} className="min-h-11 rounded-lg bg-emerald-700 px-4 text-sm font-semibold text-white hover:bg-emerald-800">
           Повторить
         </button>
         <Link href="/bank" className="min-h-11 content-center rounded-lg border border-zinc-300 px-4 text-sm font-semibold dark:border-zinc-700">
