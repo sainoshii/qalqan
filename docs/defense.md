@@ -7,6 +7,8 @@
 Презентация: https://www.figma.com/slides/j0lox1duea49vVnlEehSaE — 13 основных слайдов,
 2 запасных со скриншотами (помечены «пропускать при показе»).
 
+Что и куда сдаём, доступы, сроки и финальная проверка — [submission.md](submission.md).
+
 ## Перед выступлением (за 10 минут)
 
 - Открыть во вкладках: https://qalqan-one.vercel.app/bank и https://qalqan-one.vercel.app/dashboard.
