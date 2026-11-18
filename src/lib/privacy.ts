@@ -15,8 +15,18 @@ type Replacer = (match: string, ...args: unknown[]) => string;
 /** Горизонтальный пробел (без переноса строки): контекст не переходит на соседнюю строку. */
 const H = String.raw`[^\S\n]`;
 
-/** Формы слов, рядом с которыми число может быть секретным кодом (RU, KZ, EN). */
-const CODE_KEY = String.raw`(?:код[аеуы]?|кодом|кодты|кодын|кодыңыз|cvv2?|cvc2?|pin|пин(?:-?код)?|парол[ьяюе]|пароли|құпия${H}?сөз\p{L}*|code|codes|passcode|otp)`;
+/**
+ * Формы слов, рядом с которыми число может быть секретным кодом (RU, KZ, EN), в любой записи:
+ * кириллица, латиница («kod», «parol», «qupiya soz»), «упрощённые» казахские буквы («купия соз»,
+ * «кодыныз») и латинские буквы-двойники внутри кириллического слова («кoд» с латинской o).
+ */
+const CODE_KEY = [
+  String.raw`[кk][оo][дd](?:[аеуы]|ом|ты|ын|ыңыз|ыныз|ыңызды|ынызды|[aeuy]|om|ty|yn|ynyz|yñyz|ynyzdy|iniz)?`,
+  String.raw`[кk][ .\-][оo][ .\-][дd]`, // разрядка: «к о д», «к.о.д»
+  String.raw`[пp][аa][рpr][оo][лl](?:[ьяюе]|[ia])?|пароли`,
+  String.raw`[құк][ұу]пия${H}?с[өо]з\p{L}*|[qk][uū]pi(?:ya|ia|a)${H}?s[oö]z\p{L}*`,
+  String.raw`cvv2?|cvc2?|pin|пин(?:-?код)?|code|codes|passcode|otp`,
+].join("|");
 
 /**
  * Число из цифр с одиночным пробелом или дефисом между цифрами, захватывается целиком.
@@ -33,7 +43,7 @@ const NUMBER = String.raw`\d(?:(?:${H}|-)?\d)*`;
 const SEP = String.raw`${H}{0,3}[:\-–—]?${H}{0,3}[(«"“']?${H}{0,2}`;
 
 /** Слова, превращающие «код» в идентификатор, а не секрет: «код заказа», «код акции». */
-const ID_NOUN = /(?<!\p{L})(?:заказ\p{L}*|акци\p{L}*|товар\p{L}*|купон\p{L}*|промо\p{L}*|скидк\p{L}*|регион\p{L}*|город\p{L}*|филиал\p{L}*|отделени\p{L}*|клиент\p{L}*|тапсырыс\p{L}*|order|promo\p{L}*|product)(?!\p{L})/iu;
+const ID_NOUN = /(?<!\p{L})(?:заказ\p{L}*|акци\p{L}*|товар\p{L}*|купон\p{L}*|промо\p{L}*|скидк\p{L}*|регион\p{L}*|город\p{L}*|филиал\p{L}*|отделени\p{L}*|клиент\p{L}*|тапсырыс\p{L}*|order|promo\p{L}*|product|zakaz\p{L}*|tapsyrys\p{L}*|akci\p{L}*|aktsi\p{L}*|tovar\p{L}*)(?!\p{L})/iu;
 
 /**
  * Код не нужен — конкретные фразы, а не любое «не»: «не сообщайте: 4821» остаётся секретом.
@@ -41,7 +51,7 @@ const ID_NOUN = /(?<!\p{L})(?:заказ\p{L}*|акци\p{L}*|товар\p{L}*|�
 const NOT_NEEDED = /(?<!\p{L})(?:не[^\S\n]+(?:нуж\p{L}*|требу\p{L}*|обязател\p{L}*)|қажет[^\S\n]+емес|керек[^\S\n]+емес|not[^\S\n]+(?:needed|required))(?!\p{L})/iu;
 
 /** Сразу после числа (на той же строке) — валюта или «год»: это сумма/год, а не код. */
-const AMOUNT_AFTER = /^[^\S\n]*(?:тенге|теңге|тг|₸|kzt|руб\p{L}*|\$|год\p{L}*|жыл\p{L}*)(?!\p{L})/iu;
+const AMOUNT_AFTER = /^[^\S\n]*(?:тенге|теңге|тг|₸|kzt|tg|tenge|teñge|руб\p{L}*|\$|год\p{L}*|жыл\p{L}*)(?!\p{L})/iu;
 
 /** Число продолжается точкой/слэшем и цифрами — часть даты или дробного числа. */
 const DATE_TAIL = /^[./-]\d/;
@@ -107,17 +117,19 @@ const backwardCode: [RegExp, Replacer] = [
   },
 ];
 
-/** Телефоны: не маскировать номера заказов/документов вида «Заказ №7015551234». */
-function phone(pattern: RegExp): [RegExp, Replacer] {
+/** Не маскировать номера заказов/документов вида «Заказ №7015551234» (телефон, ИИН группами). */
+function unlessOrder(pattern: RegExp, label: string): [RegExp, Replacer] {
   return [
     pattern,
     (match, ...args) => {
       const offset = args[args.length - 2] as number;
       const whole = args[args.length - 1] as string;
-      return ORDER_BEFORE.test(whole.slice(Math.max(0, offset - 30), offset)) ? match : "[ТЕЛЕФОН]";
+      return ORDER_BEFORE.test(whole.slice(Math.max(0, offset - 30), offset)) ? match : label;
     },
   ];
 }
+
+const phone = (pattern: RegExp) => unlessOrder(pattern, "[ТЕЛЕФОН]");
 
 const RULES: Array<[RegExp, string | Replacer]> = [
   // IBAN Казахстана: KZ + 2 цифры + 16 символов (допускаем пробелы)
@@ -132,18 +144,38 @@ const RULES: Array<[RegExp, string | Replacer]> = [
   // Мобильные KZ без кода страны: 70x, 747, 77x + 7 цифр
   phone(/(?<!\d)\(?(?:70\d|747|77\d)\)?[\s-]*\d{3}[\s-]*\d{2}[\s-]*\d{2}(?!\d)/gu),
 
-  // ИИН: ровно 12 цифр
+  // ИИН: ровно 12 цифр — подряд или группами 6+6 и 4+4+4 («900101 123456»)
   [/(?<!\d)\d{12}(?!\d)/gu, "[ИИН]"],
+  unlessOrder(/(?<!\d[\s-]?)(?:\d{6}[\s-]\d{6}|\d{4}[\s-]\d{4}[\s-]\d{4})(?![\s-]?\d)/gu, "[ИИН]"),
 
   forwardCode,
   backwardCode,
 ];
 
+/** Невидимые символы (мягкий перенос, zero-width, управление направлением): ими разбивают «4\u200b8\u200b2\u200b1». */
+const INVISIBLE = /[\u00ad\u034f\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufe00-\ufe0f\ufeff]/g;
+/** Комбинируемые знаки после цифры (4\u03018): у цифр их не бывает, ими тоже разбивают число. */
+const MARKS_AFTER_DIGIT = /(\d)\p{M}+/gu;
+
+/**
+ * Перед маскированием: невидимые символы удаляются, полноширинные цифры и буквы («４８２１», «＋７»)
+ * и «математические» цифры («𝟒») приводятся к обычным. Иначе такие записи кода, карты, телефона
+ * проходили бы маскирование как есть. Остальной текст не меняется.
+ */
+function foldForMasking(text: string): string {
+  return text
+    .replace(INVISIBLE, "")
+    .replace(/[\uff01-\uff5e]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/[\u{1d7ce}-\u{1d7ff}]/gu, (c) => c.normalize("NFKC"))
+    // после приведения цифр к ASCII: иначе «４\u0301» не распознаётся как цифра (ревью, цикл 3, C1)
+    .replace(MARKS_AFTER_DIGIT, "$1");
+}
+
 export function maskSensitive(text: string): string {
   return RULES.reduce(
     (acc, [pattern, replacement]) =>
       typeof replacement === "string" ? acc.replace(pattern, replacement) : acc.replace(pattern, replacement),
-    text,
+    foldForMasking(text),
   );
 }
 

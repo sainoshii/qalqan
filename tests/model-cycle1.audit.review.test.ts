@@ -50,7 +50,9 @@ describe("model cycle 1: independent audit (no holdout errors printed)", () => {
 
   it("all training files parse and have no exact duplicate text or conflicting labels", () => {
     const rows = loadTraining();
-    expect(rows).toHaveLength(444);
+    // Сколько примеров в обучении — по весам в репозитории: новый файл в TRAIN_FILES + `npm run train` не ломает тест
+    const weights = JSON.parse(readFileSync(weightPath, "utf8")) as ModelWeights;
+    expect(rows).toHaveLength(weights.examples);
     expect(new Set(rows.map((r) => r.text)).size).toBe(rows.length);
   });
 

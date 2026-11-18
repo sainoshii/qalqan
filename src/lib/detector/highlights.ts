@@ -1,18 +1,30 @@
 import type { Highlight } from "../domain";
-import { QUOTED, SIGNALS, SUSPICIOUS_LINK_REASON, URL_PATTERN, WARNING_CONTEXT, isTrustedLink } from "./rules";
+import { canonicalize, linkSpans } from "./normalize";
+import { QUOTED, SIGNALS, SUSPICIOUS_LINK_REASON, WARNING_CONTEXT, isTrustedLink } from "./rules";
 
 /**
  * Подсветка: какие фрагменты исходного текста дали сработавшие признаки правил.
  *
- * Правила работают по нормализованному тексту (нижний регистр, ё→е, схлопнутые пробелы),
- * поэтому здесь строится такая же нормализация с картой «позиция → позиция в исходнике»,
- * а найденные места переводятся обратно. Позиции — в UTF-16, как `String.prototype.slice`.
+ * Правила работают по канонической форме текста (нижний регистр, ё→е, схлопнутые пробелы,
+ * латиница и смешанная раскладка приведены к кириллице — см. normalize.ts). Та же функция
+ * возвращает карту «позиция → позиция в исходнике», по ней найденные места переводятся
+ * обратно: клиент видит подсветку в своём исходном тексте, а не в нормализованном.
+ * Позиции — в UTF-16, как `String.prototype.slice`.
  */
 
 const MAX_HIGHLIGHTS = 30;
 /** Длинное совпадение («назовите … код») подсвечивается по краям, а не целиком. */
 const LONG_MATCH = 40;
 const WORD_CHAR = /[\p{L}\p{N}]/u;
+
+/** Начало кодовой точки перед позицией `i` (UTF-16). */
+function prevPoint(text: string, i: number): number {
+  const low = text.charCodeAt(i - 1);
+  return i >= 2 && low >= 0xdc00 && low <= 0xdfff && text.charCodeAt(i - 2) >= 0xd800 && text.charCodeAt(i - 2) <= 0xdbff ? i - 2 : i - 1;
+}
+
+const pointLength = (text: string, i: number) => (text.codePointAt(i)! > 0xffff ? 2 : 1);
+const isWordAt = (text: string, i: number) => WORD_CHAR.test(String.fromCodePoint(text.codePointAt(i)!));
 
 interface Normalized {
   text: string;
@@ -21,46 +33,12 @@ interface Normalized {
 }
 
 /**
- * То же, что `normalize` из правил, но с картой позиций. Регистр меняется у всей строки
- * сразу (как в `normalize`: контекстные правила, например греческая сигма), а карта
- * строится по кодовым точкам — длина нижнего регистра у кодовой точки от контекста не зависит.
+ * То же, что `normalize` из правил, но с картой позиций: обе функции — это `canonicalize`
+ * из normalize.ts, поэтому текст, по которому ищут правила, и текст, по которому строится
+ * подсветка, совпадают по построению.
  */
 export function normalizeWithMap(source: string): Normalized {
-  // 1. Схлопнуть пробельные символы и обрезать края, запоминая позицию каждого UTF-16 символа
-  let collapsed = "";
-  const collapsedMap: number[] = [];
-  let pendingSpace = -1;
-  for (let i = 0; i < source.length; ) {
-    const cp = source.codePointAt(i)!;
-    const ch = String.fromCodePoint(cp);
-    if (/\s/.test(ch)) {
-      if (pendingSpace < 0) pendingSpace = i;
-    } else {
-      if (pendingSpace >= 0 && collapsed.length > 0) {
-        collapsed += " ";
-        collapsedMap.push(pendingSpace);
-      }
-      pendingSpace = -1;
-      collapsed += ch;
-      for (let k = 0; k < ch.length; k++) collapsedMap.push(i);
-    }
-    i += ch.length;
-  }
-
-  // 2. Нижний регистр всей строки; карта — по длине нижнего регистра каждой кодовой точки
-  const text = collapsed.toLowerCase().replace(/ё/g, "е");
-  const map: number[] = [];
-  for (let j = 0; j < collapsed.length; ) {
-    const ch = String.fromCodePoint(collapsed.codePointAt(j)!);
-    const len = ch.toLowerCase().length;
-    for (let k = 0; k < len; k++) map.push(collapsedMap[j]);
-    j += ch.length;
-  }
-  if (map.length !== text.length) {
-    // Не ожидается; на всякий случай — без подсветки, но без неверных позиций
-    return { text, map: Array.from({ length: text.length }, () => -1) };
-  }
-  return { text, map };
+  return canonicalize(source);
 }
 
 type Span = [number, number]; // [начало, конец) в нормализованном тексте
@@ -98,7 +76,6 @@ export function findHighlights(source: string, signalIds: readonly string[]): Hi
   const ids = new Set(signalIds);
   if (ids.size === 0) return [];
   const { text, map } = normalizeWithMap(source);
-  if (map[0] === -1) return [];
 
   // Слабые признаки правила ищут в тексте без цитат (если это предупреждение) — здесь то же
   // представление: каждая цитата заменена пробелом, wmap переводит позиции обратно в `text`.
@@ -153,9 +130,9 @@ export function findHighlights(source: string, signalIds: readonly string[]): Hi
     }
   }
   if (ids.has("suspicious_link")) {
-    for (const m of weak.matchAll(URL_PATTERN)) {
-      if (isTrustedLink(m[0])) continue;
-      for (const span of fromWeak([m.index, m.index + m[0].length])) raw.push({ span, reason: SUSPICIOUS_LINK_REASON });
+    for (const [from, to] of linkSpans(weak)) {
+      if (isTrustedLink(weak.slice(from, to))) continue;
+      for (const span of fromWeak([from, to])) raw.push({ span, reason: SUSPICIOUS_LINK_REASON });
     }
   }
   if (raw.length === 0) return [];
@@ -166,8 +143,9 @@ export function findHighlights(source: string, signalIds: readonly string[]): Hi
     const last = map[e - 1];
     // Конец — после всей исходной кодовой точки (символ вне BMP занимает две UTF-16 единицы)
     let end = last + (source.codePointAt(last)! > 0xffff ? 2 : 1);
-    while (start > 0 && WORD_CHAR.test(source[start - 1]) && WORD_CHAR.test(source[start])) start--;
-    while (end < source.length && WORD_CHAR.test(source[end]) && WORD_CHAR.test(source[end - 1])) end++;
+    // Расширение до границ слова — по кодовым точкам: буква вне BMP (𐐀) — две UTF-16 единицы
+    while (start > 0 && isWordAt(source, prevPoint(source, start)) && isWordAt(source, start)) start = prevPoint(source, start);
+    while (end < source.length && isWordAt(source, end) && isWordAt(source, prevPoint(source, end))) end += pointLength(source, end);
     return { start, end, reasons: [reason] };
   });
   spans.sort((a, b) => a.start - b.start || b.end - a.end);

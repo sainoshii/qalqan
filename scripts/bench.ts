@@ -15,8 +15,10 @@ import { cpus } from "node:os";
 import { analyzeMessage } from "../src/lib/detector";
 import { parseDataset } from "../src/lib/dataset";
 import { assessTransfer } from "../src/lib/transfer/risk";
+import { TRAIN_FILES } from "./train-model";
 
-const DATA = ["messages.jsonl", "challenge-1.jsonl", "train-2.jsonl", "train-3.jsonl"].map((f) => `data/dataset/${f}`);
+/** Те же сообщения, на которых обучается модель (отложенные наборы сюда не входят). */
+const DATA = TRAIN_FILES;
 const HTTP_REQUESTS = 20;
 
 export function percentile(sorted: number[], p: number): number {

@@ -33,7 +33,9 @@ describe("cycle 2: independent synthetic challenge", () => {
       .toEqual(new Set(SCAM_TYPES));
   });
 
-  it("reports coverage by scheme without imposing a quality target", async () => {
+  // Прогон детектора по отложенному набору — только по явному запросу (QALQAN_HELD_OUT=1): обычный
+  // npm run check не должен оценивать детектор на challenge-2 (ревью kk-normalize, цикл 1, C3).
+  it.skipIf(process.env.QALQAN_HELD_OUT !== "1")("reports coverage by scheme without imposing a quality target", async () => {
     const rows = await Promise.all(challenge.items.map(async (item) => {
       const result = await analyzeMessage(item.text, { lang: item.lang, useLlm: false });
       expect(result.mode).toBe("rules");

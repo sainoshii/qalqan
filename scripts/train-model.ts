@@ -20,6 +20,7 @@ export const TRAIN_FILES = [
   "data/dataset/challenge-1.jsonl",
   "data/dataset/train-2.jsonl",
   "data/dataset/train-3.jsonl", // участник A
+  // "data/dataset/train-4.jsonl", // участник A, казахский и латиница — раскомментировать после ревью PR, затем `npm run train`
   "data/dataset/feedback.jsonl", // решения аналитиков: npm run feedback:export; нет файла — пропускается
 ];
 
