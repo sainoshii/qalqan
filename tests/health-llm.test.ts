@@ -19,7 +19,7 @@ describe("/api/health — состояние LLM без ключа", () => {
   it("LLM не подключена", async () => {
     vi.stubEnv("ANTHROPIC_API_KEY", "");
     const body = await (await health()).json();
-    expect(body.llm).toEqual({ configured: false, model: null, zone: "30-69", paused: false });
+    expect(body.llm).toEqual({ configured: false, model: null, zone: "30-69", paused: false, budgetExhausted: false });
   });
 
   it("подключена: модель и зона видны, ключ — нет", async () => {
@@ -29,6 +29,6 @@ describe("/api/health — состояние LLM без ключа", () => {
     const res = await health();
     const text = await res.text();
     expect(text).not.toContain("synthetic-secret-key-value");
-    expect(JSON.parse(text).llm).toEqual({ configured: true, model: "claude-haiku-5-5", zone: "all", paused: false });
+    expect(JSON.parse(text).llm).toEqual({ configured: true, model: "claude-haiku-5-5", zone: "all", paused: false, budgetExhausted: false });
   });
 });

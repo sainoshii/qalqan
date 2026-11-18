@@ -18,6 +18,12 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
           { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
+          // CSP без ограничения скриптов (для этого нужны nonce у встроенных скриптов Next.js):
+          // запрет плагинов, подмены <base>, отправки форм и встраивания страницы на чужие сайты
+          {
+            key: "Content-Security-Policy",
+            value: "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+          },
         ],
       },
     ];

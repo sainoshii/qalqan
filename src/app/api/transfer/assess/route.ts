@@ -11,9 +11,11 @@ import { AssessRequestSchema } from "@/lib/transfer/request";
  * Ничего не сохраняет. Реквизиты получателя не принимаются.
  */
 const allow = createRateLimiter(30, 60_000);
+/** Общий потолок на весь экземпляр: адрес клиента можно сменить, а нагрузку — нет. */
+const allowGlobal = createRateLimiter(600, 60_000);
 
 export async function POST(request: Request) {
-  if (!allow(clientIp(request))) return jsonError(429, "Слишком много запросов. Повторите через минуту.", { "Retry-After": "60" });
+  if (!allow(clientIp(request)) || !allowGlobal("*")) return jsonError(429, "Слишком много запросов. Повторите через минуту.", { "Retry-After": "60" });
 
   const body = await readJson(request);
   if ("response" in body) return body.response;

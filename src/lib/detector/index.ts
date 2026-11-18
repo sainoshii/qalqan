@@ -1,7 +1,7 @@
 import { HIGH_RISK, type AnalysisResult, type Language } from "../domain";
 import { maskSensitive } from "../privacy";
 import { askLlm, llmConfigured, type LlmVerdict } from "./llm";
-import { inLlmZone, llmBreaker, llmZoneFromEnv, type LlmZone } from "./llm-gate";
+import { inLlmZone, llmBreaker, llmBudget, llmZoneFromEnv, type LlmZone } from "./llm-gate";
 import { CompiledModel, type ModelVerdict, type ModelWeights } from "./model";
 import weights from "./model-weights.json";
 import { findHighlights } from "./highlights";
@@ -126,12 +126,14 @@ export async function analyzeMessage(text: string, options: AnalyzeOptions = {})
   const model = options.useModel === false ? null : (options.model ?? defaultModel).predict(text);
   const rules = combineLocal(evaluateRules(text), model, text);
 
-  const useLlm = options.useLlm ?? (options.llm !== undefined || llmConfigured());
+  const useLlm = options.useLlm !== false && (options.llm !== undefined || llmConfigured());
   const zone = options.llmZone ?? llmZoneFromEnv();
   let verdict: LlmVerdict | null = null;
   // Автоотключение защищает настоящий вызов API; подменённую в тестах LLM не трогает
   const breaker = options.llm ? null : llmBreaker;
-  if (useLlm && inLlmZone(rules.score, zone) && !breaker?.open()) {
+  // Бюджет вызовов в минуту — тоже только для настоящего API; занимается последним, перед вызовом
+  const budget = options.llm ? null : llmBudget;
+  if (useLlm && inLlmZone(rules.score, zone) && !breaker?.open() && (budget?.take() ?? true)) {
     try {
       // В LLM уходит только замаскированный текст
       verdict = await (options.llm ?? askLlm)(maskSensitive(text), lang);

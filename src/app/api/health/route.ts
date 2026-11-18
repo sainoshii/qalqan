@@ -2,9 +2,9 @@ import { connection } from "next/server";
 import { db } from "@/lib/cases/repository";
 import { describeDbError, storageKind } from "@/lib/db/diagnose";
 import { DEFAULT_MODEL, llmConfigured } from "@/lib/detector/llm";
-import { describeLlmZone, llmBreaker, llmZoneFromEnv } from "@/lib/detector/llm-gate";
+import { describeLlmZone, llmBreaker, llmBudget, llmZoneFromEnv } from "@/lib/detector/llm-gate";
 
-/** Состояние LLM без ключа: подключена ли, модель, «серая зона», пауза после сбоев. */
+/** Состояние LLM без ключа: подключена ли, модель, «серая зона», пауза после сбоев, исчерпан ли бюджет. */
 function llmStatus() {
   const configured = llmConfigured();
   return {
@@ -12,6 +12,7 @@ function llmStatus() {
     model: configured ? process.env.QALQAN_LLM_MODEL || DEFAULT_MODEL : null,
     zone: describeLlmZone(llmZoneFromEnv()),
     paused: configured && llmBreaker.open(),
+    budgetExhausted: configured && llmBudget.exhausted(),
   };
 }
 

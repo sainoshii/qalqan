@@ -78,3 +78,50 @@ export class LlmBreaker {
 }
 
 export const llmBreaker = new LlmBreaker();
+
+/**
+ * Бюджет вызовов LLM: не больше `QALQAN_LLM_MAX_PER_MIN` (по умолчанию 60) в минуту на экземпляр
+ * процесса. Выше — LLM не вызывается, ответ даёт локальный вердикт (правила + модель). Защищает
+ * от счёта за API, если публичный адрес заспамят: лимиты по адресу клиента обходятся сменой адреса.
+ */
+export const DEFAULT_LLM_MAX_PER_MIN = 60;
+const LLM_BUDGET_WINDOW_MS = 60_000;
+
+export function parseLlmMaxPerMin(value: string | undefined): number {
+  const v = value?.trim();
+  if (!v) return DEFAULT_LLM_MAX_PER_MIN;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 0 ? n : DEFAULT_LLM_MAX_PER_MIN;
+}
+
+export class LlmBudget {
+  private calls: readonly number[] = [];
+
+  constructor(
+    private readonly limit: () => number = () => parseLlmMaxPerMin(process.env.QALQAN_LLM_MAX_PER_MIN),
+    private readonly now: () => number = () => Date.now(),
+  ) {}
+
+  private recent(t: number): readonly number[] {
+    return this.calls.filter((c) => t - c < LLM_BUDGET_WINDOW_MS);
+  }
+
+  /** Занимает один вызов, если бюджет есть; иначе false. */
+  take(): boolean {
+    const t = this.now();
+    const recent = this.recent(t);
+    if (recent.length >= this.limit()) {
+      this.calls = recent;
+      return false;
+    }
+    this.calls = [...recent, t];
+    return true;
+  }
+
+  /** Бюджет исчерпан (для /api/health); ничего не занимает. */
+  exhausted(): boolean {
+    return this.recent(this.now()).length >= this.limit();
+  }
+}
+
+export const llmBudget = new LlmBudget();
