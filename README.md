@@ -185,7 +185,7 @@ curl -X POST https://qalqan-one.vercel.app/api/analyze \
 ## Стек
 
 TypeScript · Next.js 16 (App Router) · React 19 · Tailwind CSS 4 · libSQL / Turso (SQLite) ·
-Zod · Claude API (опционально) · Vitest (1047 тестов) · Vercel.
+Zod · Claude API (опционально) · Vitest (1119 тестов) · Vercel.
 
 ## Структура репозитория
 

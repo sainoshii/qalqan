@@ -131,6 +131,29 @@ function unlessOrder(pattern: RegExp, label: string): [RegExp, Replacer] {
 
 const phone = (pattern: RegExp) => unlessOrder(pattern, "[ТЕЛЕФОН]");
 
+/** Прямо перед числом — метка ИИН: «ИИН», «ЖСН», «IIN», «IIN:», «ИИН №». */
+const IIN_LABEL_BEFORE = /(?<!\p{L})(?:иин|жсн|iin|zhsn|jsn)[^\S\n]{0,3}[:№#]?[^\S\n]{0,3}$/iu;
+
+/**
+ * ИИН группами (6+6, 4+4+4): как unlessOrder, но если сразу после числа валюта или «год»
+ * («1000 2000 3000 тг»), это сумма, а не ИИН — не маскируется. Явная метка «ИИН»/«ЖСН» перед
+ * числом важнее валюты: «ИИН 900101 123456 тг» маскируется (ревью iin-amount, цикл 1, C1).
+ */
+function iinGrouped(pattern: RegExp): [RegExp, Replacer] {
+  const [, unlessOrderReplace] = unlessOrder(pattern, "[ИИН]");
+  return [
+    pattern,
+    (match, ...args) => {
+      const offset = args[args.length - 2] as number;
+      const whole = args[args.length - 1] as string;
+      const labelled = IIN_LABEL_BEFORE.test(whole.slice(Math.max(0, offset - 15), offset));
+      if (labelled) return "[ИИН]"; // метка важнее и валюты, и «№» («ИИН №900101 123456»)
+      if (AMOUNT_AFTER.test(whole.slice(offset + match.length))) return match;
+      return unlessOrderReplace(match, ...args);
+    },
+  ];
+}
+
 const RULES: Array<[RegExp, string | Replacer]> = [
   // IBAN Казахстана: KZ + 2 цифры + 16 символов (допускаем пробелы)
   [/(?<![\p{L}\d])KZ\d{2}(?:\s?[A-Z0-9]){16}(?![\p{L}\d])/giu, "[IBAN]"],
@@ -146,7 +169,7 @@ const RULES: Array<[RegExp, string | Replacer]> = [
 
   // ИИН: ровно 12 цифр — подряд или группами 6+6 и 4+4+4 («900101 123456»)
   [/(?<!\d)\d{12}(?!\d)/gu, "[ИИН]"],
-  unlessOrder(/(?<!\d[\s-]?)(?:\d{6}[\s-]\d{6}|\d{4}[\s-]\d{4}[\s-]\d{4})(?![\s-]?\d)/gu, "[ИИН]"),
+  iinGrouped(/(?<!\d[\s-]?)(?:\d{6}[\s-]\d{6}|\d{4}[\s-]\d{4}[\s-]\d{4})(?![\s-]?\d)/gu),
 
   forwardCode,
   backwardCode,
