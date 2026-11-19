@@ -26,8 +26,8 @@
 Я носитель языка и проверю каждую партию; жди моего «дальше».
 
 Формат — одна JSON-запись на строку, без лишнего текста:
-{"id":"kk-legit-501","lang":"kk","channel":"messenger","label":"legit","scamType":null,"split":"dev","hardNegative":true,"text":"..."}
-- id: kk-legit-501 … kk-legit-570 по порядку;
+{"id":"kk-legit-601","lang":"kk","channel":"messenger","label":"legit","scamType":null,"split":"dev","hardNegative":true,"text":"..."}
+- id: kk-legit-601 … kk-legit-670 по порядку;
 - channel: sms / call / messenger / email вперемешку; для call — диалог, реплики начинаются с «— »
   и разделены \n внутри строки JSON;
 - hardNegative: true у сообщений, которые ПОХОЖИ на мошенничество, но обычные (минимум 40 из 70),
