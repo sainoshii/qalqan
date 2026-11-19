@@ -319,6 +319,19 @@ export const SIGNALS: Signal[] = [
     reason: "Просят срочно перевести деньги на карту",
     patterns: [/(?:скинь|переведи|одолжи)[^.!?\n]{0,30}\d|срочно нужно \d|нужно \d[\d ]* (?:тенге|тг)?[^.!?\n]{0,20}потом/, kk(/шұғыл \d[\d ]* теңге керек/)],
   },
+  {
+    id: "income_promise",
+    weight: 25,
+    type: "investment",
+    reason: "Обещают доход без риска или «гарантированный» возврат вложений — так выглядят финансовые пирамиды",
+    // Слабый признак: сам вмешательства не даёт, но подтверждает модель (правило двух сигналов).
+    // Секретность, предоплата, «посредник» и «N мың салшы» на казахском не вошли: в ревью kk-weak-rules
+    // (циклы 1–3) и kk-weak-narrow давали ложные вмешательства на обычных сообщениях.
+    patterns: [
+      kk(/минус (?:мүлде |вообще )?(?:болмайды|жоқ)|(?:тәуекел|риск) (?:жоқ|болмайды)|кепілді \d|гарант(?!\p{L})|екі есе (?:көбейт|қайтар|өс)/u),
+      kk(/\d+ ?% (?:таза )?(?:пайда|табыс)|\d+ мың сал[^.!?\n]{0,40}\d+ мың (?:ал|қайтар|шығар)/),
+    ],
+  },
   // ───────────── Защитные признаки ─────────────
   {
     id: "protective_code_warning",
@@ -363,7 +376,7 @@ const TYPE_PRIORITY: Array<{ type: ScamType; signals: string[] }> = [
   { type: "fake_security_service", signals: ["security_service", "callback_number", "remote_access"] },
   { type: "official_impersonation", signals: ["national_bank"] },
   { type: "relative_in_trouble", signals: ["relative_in_trouble"] },
-  { type: "investment", signals: ["investment"] },
+  { type: "investment", signals: ["investment", "income_promise"] },
   { type: "marketplace", signals: ["marketplace"] },
   { type: "prize_or_delivery", signals: ["prize_or_delivery"] },
   { type: "phishing_link", signals: ["suspicious_link"] },
