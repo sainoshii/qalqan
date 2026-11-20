@@ -7,9 +7,13 @@ import { crossValidate } from "@/lib/detector/train";
 import { combineLocal } from "@/lib/detector";
 import { evaluateRules } from "@/lib/detector/rules";
 
+// Замер на отложенных наборах — только явно (QALQAN_HELD_OUT=1), как в llm-gray-cycle2: обычный check их не мерит.
+const HELD_OUT = process.env.QALQAN_HELD_OUT === "1";
+
 describe("train-4 review: aggregate-only audit", () => {
-  it("reproduces warning percentages without printing held-out texts", async () => {
-    for (const [file, expected] of [["challenge-2", [95, 30]], ["challenge-4", [100, 20]]] as const) {
+  // Цифры — текущей модели (после train-5, 20 ноября): на challenge-4 ложных предупреждений 25%.
+  it.skipIf(!HELD_OUT)("reproduces warning percentages without printing held-out texts", async () => {
+    for (const [file, expected] of [["challenge-2", [95, 30]], ["challenge-4", [100, 25]]] as const) {
       const parsed = parseDataset(readFileSync(`data/dataset/${file}.jsonl`, "utf8"));
       expect(parsed.errors.length).toBe(0);
       const rows = await scoreDataset(parsed.items, false);
@@ -26,8 +30,10 @@ describe("train-4 review: aggregate-only audit", () => {
   });
 
   it("reports five-fold language and hard-negative metrics before and after train-4", () => {
-    const old = loadTraining(TRAIN_FILES.filter(f => !f.endsWith("train-4.jsonl")));
-    const all = loadTraining();
+    // Вклад именно train-4: train-5 (добавлен позже) исключён из обеих выборок
+    const withoutLater = TRAIN_FILES.filter(f => !f.endsWith("train-5.jsonl"));
+    const old = loadTraining(withoutLater.filter(f => !f.endsWith("train-4.jsonl")));
+    const all = loadTraining(withoutLater);
     expect(old.length).toBe(444);
     expect(all.length).toBe(604);
     const oldIds = new Set(old.map(i => i.id));

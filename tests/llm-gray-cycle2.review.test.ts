@@ -17,12 +17,11 @@ it.skipIf(!HELD_OUT)("review: README holdout counts and strong false positives a
   const items = ["challenge-2", "challenge-4"].flatMap((name) =>
     parseDataset(readFileSync(`data/dataset/${name}.jsonl`, "utf8")).items);
   const rows = await scoreDataset(items, false, true);
-  // Цифры финального замера kk-normalize (2026-11-18, `npm run eval` по challenge-2 и challenge-4)
-  expect(llmPlan(rows, DEFAULT_LLM_ZONE)).toEqual({ n: 80, asked: 18, askedScam: 12, askedLegit: 6, missedBelow: 1, falseAbove: 5 });
+  // Цифры замера после train-5 (2026-11-20, `npm run eval` по challenge-2 и challenge-4)
+  expect(llmPlan(rows, DEFAULT_LLM_ZONE)).toEqual({ n: 80, asked: 20, askedScam: 12, askedLegit: 8, missedBelow: 1, falseAbove: 4 });
   const falsePositives = rows.filter((r) => r.item.label === "legit" && r.riskScore >= 70);
-  expect(falsePositives).toHaveLength(5);
-  // 4 из 5 правила дают сами (режим «только правила»: 1 + 3) — однозначные признаки, LLM их не снизит;
-  // пятое — связка правил с моделью.
+  expect(falsePositives).toHaveLength(4);
+  // Все 4 дают правила сами — однозначные признаки, LLM их не снизит (связка с моделью после train-5 ушла).
   const byRules = falsePositives.filter((r) => evaluateRules(r.item.text).score >= 70);
   expect(byRules).toHaveLength(4);
   for (const row of byRules) {

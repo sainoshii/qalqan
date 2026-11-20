@@ -21,6 +21,7 @@ export const TRAIN_FILES = [
   "data/dataset/train-2.jsonl",
   "data/dataset/train-3.jsonl", // участник A
   "data/dataset/train-4.jsonl", // участник A, казахский и латиница (PR #2, 19 ноября)
+  "data/dataset/train-5.jsonl", // лид: 70 обычных казахских сообщений о деньгах, учёбе, банке (20 ноября)
   "data/dataset/feedback.jsonl", // решения аналитиков: npm run feedback:export; нет файла — пропускается
 ];
 
