@@ -6,7 +6,8 @@
 
 **Демо:** https://qalqan-one.vercel.app · [мобильный банк](https://qalqan-one.vercel.app/bank) ·
 [панель антифрода](https://qalqan-one.vercel.app/dashboard) ·
-[API для банка](https://qalqan-one.vercel.app/docs)
+[API для банка](https://qalqan-one.vercel.app/docs) ·
+[видео демо, 1:23](https://youtu.be/qMURjb4eFmw)
 
 ![Экран вмешательства: Qalqan останавливает перевод после звонка «службы безопасности»](docs/screenshots/bank-intervention.jpg)
 
